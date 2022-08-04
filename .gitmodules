@@ -1,0 +1,18 @@
+[submodule "taming-transformers"]
+	path = taming-transformers
+	url = https://github.com/CompVis/taming-transformers
+[submodule "k-diffusion"]
+	path = k-diffusion
+	url = https://github.com/crowsonkb/k-diffusion.git
+[submodule "v-diffusion-pytorch"]
+	path = v-diffusion-pytorch
+	url = https://github.com/crowsonkb/v-diffusion-pytorch.git
+[submodule "latent-diffusion"]
+	path = latent-diffusion
+	url = https://github.com/CompVis/latent-diffusion.git
+[submodule "guided-diffusion"]
+	path = guided-diffusion
+	url = https://github.com/crowsonkb/guided-diffusion
+[submodule "aesthetic-predictor"]
+	path = aesthetic-predictor
+	url = https://github.com/LAION-AI/aesthetic-predictor.git
