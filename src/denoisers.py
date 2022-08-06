@@ -17,12 +17,11 @@ from loguru import logger
 
 
 class GuidedDenoiserWithGrad(nn.Module):
-    def __init__(self, model, cond_fn, channels):
+    def __init__(self, model, cond_fn):
         super().__init__()
         self.inner_model = model
         self.cond_fn = cond_fn
         self.orig_denoised = None
-        self.channels = channels
 
     def forward(self, x, sigma, **kwargs):
         with torch.enable_grad():
@@ -36,10 +35,9 @@ class GuidedDenoiserWithGrad(nn.Module):
 
 
 class CFGDenoiser(nn.Module):
-    def __init__(self, model, channels):
+    def __init__(self, model):
         super().__init__()
         self.inner_model = model
-        self.channels = channels
 
     def forward(self, x, sigma, uncond, cond, cond_scale):                    
         x_in = torch.cat([x] * 2)

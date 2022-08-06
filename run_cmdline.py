@@ -22,13 +22,15 @@ def DoGenerate(kdiffReq):
     #genParams.prompts =  ['a virus monster is playing guitar, oil on canvas','a virus monster is playing guitar, oil on canvas','a virus monster is playing guitar, oil on canvas'] #['A mysterious orb by Ernst Fuchs']
     #genParams.prompts =  ["""Cyberpunk Knight showing his face, Biopunk, Trending on Artstation, Intelligent, symmetrical, realistic, oil painting, Biopunk, Biopunk, Biopunk, Biopunk, Brushstrokes, Symmetrical, Proportional"""] #['A mysterious orb by Ernst Fuchs']
     #genParams.prompts = ['a cat']
+    genParams.prompts = ['a cat'] #None #'a cat'
+    genParams.CFGprompts = None #['a cat']
+    genParams.CLIPprompts = None #['a cat']
     
     genParams.init_image = None #[]
     genParams.image_prompts = None
-    genParams.image_prompts = ["https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"]
+    genParams.image_prompts = None #["https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"]
     
-    genParams.CFGprompts = None #[]
-    genParams.CLIPprompts = None #[]
+    
     genParams.n_steps = 80                # 1000 - The number of timesteps to use    
     genParams.tv_scale = 100              # 100 - Controls the smoothness of the final output.
     genParams.range_scale = 50            # 50 - Controls how far out of range RGB values are allowed to be.
@@ -44,7 +46,7 @@ def DoGenerate(kdiffReq):
     genParams.init_scale = 1000  # This enhances the effect of the init image, a good value is 1000.
 
     genParams.conditioning_scale = 3.0 #??? 
-    genParams.sampleMethod = "LMS"#"HEUN" #"LMS" #LMS or HEUN
+    genParams.sampleMethod = "dpm_2_a"#"HEUN" #"LMS" #LMS or HEUN
 
     genParams.noiseSchedule = "MODEL"#"KARRAS" #"MODEL"
     genParams.sigma_min = -1.0 #1.4
@@ -52,7 +54,7 @@ def DoGenerate(kdiffReq):
 
     genParams.saveEvery = 99999999#5
     
-    genParams.clip_guidance_scale = 0#1000  # 1000 - Controls how much the image should look like the prompt.
+    genParams.clip_guidance_scale = 00#1000  # 1000 - Controls how much the image should look like the prompt.
     genParams.aesthetics_scale = 0
 
     genParams.cutoutMethod = "RANDOM" #EVEN
@@ -64,7 +66,7 @@ def DoGenerate(kdiffReq):
 
     clipguided = genParams.clip_guidance_scale != 0
 
-    clipwrap, modelwrap = kdiffer.CreateModels(modelNum, clipModelNum)
+    clipwrap, modelwrap = kdiffer.CreateModels(clipModelNum)
 
     torch.autograd.set_detect_anomaly(True)
 

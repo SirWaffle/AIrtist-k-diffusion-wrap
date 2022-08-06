@@ -41,7 +41,11 @@ def CreateKDiffer() -> kdiffWrap.KDiffWrap:
 
 
 def CreateModelsWithCaching(kdiffer:kdiffWrap.KDiffWrap, modelNum, clipModelNum) -> kdiffWrap.KDiffWrap:
-
+    #todo: make work with any models..
+    if kdiffer.CurClipWrap != None and kdiffer.CurModelWrap != None:
+        return kdiffer.CurClipWrap, kdiffer.CurModelWrap
+    clipwrap, modelwrap = kdiffer.CreateModels(clipModelNum)
+    return clipwrap, modelwrap
     #if any model number changes, reload, otherwise skip it
     if kdiffer.CurClipWrap != None and kdiffer.CurModelWrap != None:
         if kdiffer.CurClipWrap.modelNum == clipModelNum and kdiffer.CurModelWrap.modelNum == modelNum:

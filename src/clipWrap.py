@@ -5,11 +5,19 @@ import sys
 
 sys.path.append('./../aesthetic-predictor')
 
+import torch
+from torch import nn
+from torch.nn import functional as F
+from torchvision import transforms, utils
+from torchvision.transforms import functional as TF
+
 import clip
 import torch
 from torch import nn
 from einops import rearrange, repeat
 import lpips
+import utilFuncs
+import cutouts
 
 
 
@@ -19,6 +27,9 @@ class ClipWrap:
         self.model = None
         self.modelNum = -1
         self.lpips_model = None
+        self.clip_size = None
+        self.normalize = transforms.Normalize(mean=[0.48145466, 0.4578275, 0.40821073],
+                                    std=[0.26862954, 0.26130258, 0.27577711])
 
         self.aestheticModel = AestheticModel()
 
@@ -51,11 +62,23 @@ class ClipWrap:
     def LoadModel(self, torchDevice):
         self.model = clip.load(self.modelPath, jit=False)[0].eval().requires_grad_(False).to(torchDevice)
         self.lpips_model = lpips.LPIPS(net='vgg').to(torchDevice)
+        self.clip_size = self.model.visual.input_resolution
         
     def LoadAestheticsModel(self, torchDevice):
         self.aestheticModel.CreateModel(torchDevice)
 
-    
+
+    def GetTextPromptEmbeds(self, clip_prompts, device):
+        target_embeds = []
+        weights = []
+        if clip_prompts != None:
+            for prompt in clip_prompts:
+                txt, weight = utilFuncs.parse_prompt(prompt)
+                target_embeds.append(self.model.encode_text(clip.tokenize(txt).to(device)).float())
+                weights.append(weight)
+        return target_embeds, weights
+
+
 
 
 class AestheticModel:
