@@ -77,8 +77,8 @@ class CondFnClipGuidedCompvisObj:
             dists = dists.view([self.genParams.cutn, n, -1])
             losses = dists.mul(self.modelCtx.clip_weights).sum(2).mean(0)
             tv_losses = lossFunctions.tv_loss(denoised_in)
-            range_losses = lossFunctions.range_loss(denoised)
-            loss = losses.sum() * self.genParams.clip_guidance_scale + tv_losses.sum() * self.genParams.tv_scale + range_losses.sum() * self.genParams.range_scale
+            range_losses = lossFunctions.range_loss(denoised_in)
+            loss = losses.sum() * self.genParams.overall_clip_scale * (self.genParams.clip_guidance_scale + tv_losses.sum() * self.genParams.tv_scale + range_losses.sum() * self.genParams.range_scale)
 
         if self.genParams.aesthetics_scale != 0:
             ascore = self.clipWrapper.GetAestheticRatingFromEmbed(image_embeds)

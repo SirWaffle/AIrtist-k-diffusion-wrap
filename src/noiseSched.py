@@ -40,12 +40,15 @@ def GetSigmas(genParams: paramsGen.ParamsGen, model_wrap, device):
         smin = max(genParams.sigma_min, smin.to('cpu'))
 
     if genParams.noiseSchedule.lower() == 'model':
+        print("Noise Schedule: MODEL")
         sigmas = model_wrap.get_sigmas(genParams.n_steps)
     
     if genParams.noiseSchedule.lower() == 'karras':
+        print("Noise Schedule:  KARRAS")
         sigmas = K.sampling.get_sigmas_karras(genParams.n_steps, smin, smax, rho=7., device=device)
 
     if genParams.noiseSchedule.lower() == 'exp':
+        print("Noise Schedule: EXP")
         sigmas = K.sampling.get_sigmas_exponential(genParams.n_steps, smin, smax, device=device)
     
     return sigmas

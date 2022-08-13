@@ -36,6 +36,7 @@ import model_create
 import clipWrap
 import modelWrap
 import CompVisRDMModel
+import OpenAIUncondModel
 
 from ldm.modules.encoders.modules import FrozenCLIPTextEmbedder
 
@@ -52,14 +53,18 @@ class KDiffWrap:
 
 
 
-    def CreateModels(self, clipModelNum) -> tuple[clipWrap.ClipWrap, modelWrap.ModelWrap]: 
+    def CreateModels(self, clipModelNum, modelNum = 0) -> tuple[clipWrap.ClipWrap, modelWrap.ModelWrap]: 
         # CLIP model settings
         clipwrapper = clipWrap.ClipWrap()
         clipwrapper.ModelLoadSettings(clipModelNum)
         clipwrapper.LoadModel(self.torchDevice)
 
         # MODEL wrapper settings...
-        modelwrapper = CompVisRDMModel.CompVisRDMModel()
+        if modelNum == 1:
+            modelwrapper = OpenAIUncondModel.OpenAIUncondModel()
+        else:
+            modelwrapper = CompVisRDMModel.CompVisRDMModel()
+
         modelwrapper.ModelLoadSettings()
         modelwrapper.LoadModel(self.torchDevice)
 
@@ -261,7 +266,7 @@ class KDiffWrap:
 
             if  sm == "heun":
                 print("sampling: HUEN")
-                x_0 = K.sampling.sample_heun(modelCtx.kdiffModelWrap, x, modelCtx.sigmas, second_order=False, s_churn=20, callback=callback, extra_args=modelCtx.extra_args)
+                x_0 = K.sampling.sample_heun(modelCtx.kdiffModelWrap, x, modelCtx.sigmas, s_churn=20, callback=callback, extra_args=modelCtx.extra_args)
             elif sm == "lms":
                 print("sampling: LMS")
                 x_0 = K.sampling.sample_lms(modelCtx.kdiffModelWrap, x, modelCtx.sigmas, callback=callback,extra_args=modelCtx.extra_args)
@@ -272,10 +277,10 @@ class KDiffWrap:
                 print("sampling: EULER_A")
                 x_0 = K.sampling.sample_euler_ancestral(modelCtx.kdiffModelWrap, x, modelCtx.sigmas, callback=callback,extra_args=modelCtx.extra_args)
             elif sm == "dpm_2":
-                print("sampling: DPM")
+                print("sampling: DPM_2")
                 x_0 = K.sampling.sample_dpm_2(modelCtx.kdiffModelWrap, x, modelCtx.sigmas, s_churn=20, callback=callback,extra_args=modelCtx.extra_args)
             elif sm == "dpm_2_a":
-                print("sampling: DPM_2")
+                print("sampling: DPM_2_A")
                 x_0 = K.sampling.sample_dpm_2_ancestral(modelCtx.kdiffModelWrap, x, modelCtx.sigmas, callback=callback,extra_args=modelCtx.extra_args)
             else:
                 print("ERROR: invalid sampling method, defaulting to LMS")
@@ -286,7 +291,7 @@ class KDiffWrap:
 
         #for i in range(genParams.n_batches):
         with torch.no_grad():
-            if mw.model.ema_scope != None:
+            if hasattr(mw.model, 'ema_scope'):
                 with mw.model.ema_scope():
                     samples = doSamples(genParams.sampleMethod.lower())
             else:

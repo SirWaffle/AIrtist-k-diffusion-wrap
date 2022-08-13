@@ -44,5 +44,7 @@ class CFGDenoiser(nn.Module):
         sigma_in = torch.cat([sigma] * 2)
 
         cond_in = torch.cat([uncond, cond])            
-        uncond, cond = self.inner_model(x_in, sigma_in, cond=cond_in).chunk(2)               
-        return uncond + (cond - uncond) * cond_scale  
+        uncond, cond = self.inner_model(x_in, sigma_in, cond=cond_in).chunk(2)   
+        val = uncond + (cond - uncond) * cond_scale            
+        #print("DEBUGGING ONLY! SLOW!:  CFGDenoiser fwd return: " + str(val))
+        return val  
