@@ -90,7 +90,7 @@ class AestheticModel:
         """load the aethetic model"""
 
 
-        cache_folder = "D:/AIrtist/wes-diffusion-wrap/aesthetic-predictor"
+        cache_folder = "D:/AIrtist/k-diffusion-wrap/aesthetic-predictor"
         path_to_model = cache_folder + "/sa_0_4_"+clip_model_name+"_linear.pth"
 
         if clip_model_name == "vit_l_14":
