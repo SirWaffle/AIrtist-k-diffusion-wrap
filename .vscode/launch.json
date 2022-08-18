@@ -8,7 +8,7 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            "program": "run_cmdline_kclip.py",
+            "program": "run_cmdline_rdmclip.py",
             "console": "integratedTerminal",
             "justMyCode": true
         }

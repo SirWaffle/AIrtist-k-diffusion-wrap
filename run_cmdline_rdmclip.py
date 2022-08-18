@@ -23,9 +23,9 @@ def DoGenerate(kdiffReq):
     #genParams.prompts =  ['a virus monster is playing guitar, oil on canvas','a virus monster is playing guitar, oil on canvas','a virus monster is playing guitar, oil on canvas'] #['A mysterious orb by Ernst Fuchs']
     #genParams.prompts =  ["""Cyberpunk Knight showing his face, Biopunk, Trending on Artstation, Intelligent, symmetrical, realistic, oil painting, Biopunk, Biopunk, Biopunk, Biopunk, Brushstrokes, Symmetrical, Proportional"""] #['A mysterious orb by Ernst Fuchs']
     #genParams.prompts = ['a cat']
-    genParams.prompts = None # ['a cat'] #] #['a cat'] #None #'a cat'
+    genParams.prompts = ['a cat'] #] #['a cat'] #None #'a cat'
     genParams.CFGprompts = None #['a cat']
-    genParams.CLIPprompts = ['a digital painting by anton fadeev']#['A mysterious orb by Ernst Fuchs'] #NONE
+    genParams.CLIPprompts = None #['a digital painting by anton fadeev']#['A mysterious orb by Ernst Fuchs'] #NONE
     
     genParams.init_image = None #[]
     genParams.image_prompts = None

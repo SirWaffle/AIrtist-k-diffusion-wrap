@@ -38,13 +38,13 @@ class ClipWrap:
         self.modelNum = modelNum
 
         if self.modelNum != -1:
-            self.modelPath = "D:/ml/models-clip/ViT-B-16.pt"
+            self.modelPath = "E:/MLModels/clip/ViT-B-16.pt"
 
         if self.modelNum == 2:
-            self.modelPath = "D:/ml/models-clip/ViT-L-14-336px.pt"
+            self.modelPath = "E:/MLModels/clip/ViT-L-14-336px.pt"
 
         if self.modelNum == 3:
-            self.modelPath = "D:/ml/models-clip/ViT-L-14.pt"
+            self.modelPath = "E:/MLmodels/clip/ViT-L-14.pt"
 
     def GetAestheticRatingFromImage(self, image):
         image_features = self.model.encode_image(image)

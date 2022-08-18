@@ -118,7 +118,7 @@ class CompVisRDMModel(modelWrap.ModelWrap):
 
     def ModelLoadSettings(self):
         self.config_path = "D:/AIrtist/k-diffusion-wrap/latent-diffusion/configs/retrieval-augmented-diffusion/768x768.yaml"
-        self.model_path = "D:/ml/models-diffusion/ldm-compvis/RDM768x768_LD.ckpt" 
+        self.model_path = "E:/MLModels/diffusion/ldm-compvis/RDM768x768_LD.ckpt" 
         self.default_image_size_x = 768
         self.default_image_size_y = 768
         self.channels = 16
