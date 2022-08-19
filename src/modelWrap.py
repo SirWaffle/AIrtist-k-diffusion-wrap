@@ -45,6 +45,8 @@ class ModelWrap:
 
         self.default_guiding = 'CFG'
 
+        self.modelName = None
+
     def RequestImageSize(self, inst:ModelContext, x, y):
         self.image_size_x = x
         self.image_size_y = y

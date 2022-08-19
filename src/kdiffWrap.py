@@ -1,5 +1,6 @@
 import gc
 import io
+from logging import exception
 import math
 import sys
 
@@ -39,30 +40,35 @@ class KDiffWrap:
         self.torchDevice = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print('Using device:', self.torchDevice, flush=True)
 
-        self.CurClipWrap = None
-        self.CurModelWrap = None
+
+    def CreateModel(self, modelName:str) ->modelWrap.ModelWrap:
+
+        if modelName.lower() == "sd-v1-3-full-ema":
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+            modelwrapper.modelName = "sd-v1-3-full-ema"
+        elif modelName.lower() == "rdm":
+            modelwrapper = CompVisRDMModel.CompVisRDMModel()
+            modelwrapper.modelName = "rdm"
+        elif modelName.lower() == "oai-uncond":
+            modelwrapper = OpenAIUncondModel.OpenAIUncondModel()
+            modelwrapper.modelName = "oai-uncond"
+        else:
+            raise exception("invalid model")
+            
+
+        modelwrapper.ModelLoadSettings()
+        modelwrapper.LoadModel(self.torchDevice)
+
+        return modelwrapper
 
 
-
-
-    def CreateModels(self, clipModelNum, modelNum = 0) -> tuple[clipWrap.ClipWrap, modelWrap.ModelWrap]: 
+    def CreateClipModel(self, clipModelNum) -> clipWrap.ClipWrap:
         # CLIP model settings
         clipwrapper = clipWrap.ClipWrap()
         clipwrapper.ModelLoadSettings(clipModelNum)
         clipwrapper.LoadModel(self.torchDevice)
 
-        # MODEL wrapper settings...
-        if modelNum == 2:
-            modelwrapper = CompVisSDModel.CompVisSDModel()
-        elif modelNum == 1:
-            modelwrapper = OpenAIUncondModel.OpenAIUncondModel()
-        else:
-            modelwrapper = CompVisRDMModel.CompVisRDMModel()
-
-        modelwrapper.ModelLoadSettings()
-        modelwrapper.LoadModel(self.torchDevice)
-
-        return clipwrapper, modelwrapper
+        return clipwrapper
 
 
 
@@ -112,10 +118,6 @@ class KDiffWrap:
 
         #cheat for now
         device = self.torchDevice
-
-        #for caching..
-        self.CurClipWrap = cw
-        self.CurModelWrap = mw
 
         #get the prompts to use for clip
         clip_prompts = None

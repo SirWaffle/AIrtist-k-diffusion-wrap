@@ -143,7 +143,7 @@ class CompVisSDModel(modelWrap.ModelWrap):
         #c = inst.target_cfg_embeds
         c = inst.modelWrap.model.get_learned_conditioning(cfgPrompts)
         #uc = torch.zeros_like(c)
-        uc = inst.modelWrap.model.get_learned_conditioning(1 * [""])
+        uc = inst.modelWrap.model.get_learned_conditioning(genParams.num_images_to_sample * [""])
         inst.extra_args = {'cond': c, 'uncond': uc, 'cond_scale': condScale}
 
         inst.kdiffModelWrap = denoisers.CFGDenoiser(self.kdiffExternalModelWrap)

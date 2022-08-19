@@ -24,7 +24,7 @@ def DoGenerate(kdiffReq):
     #genParams.prompts =  ['a virus monster is playing guitar, oil on canvas','a virus monster is playing guitar, oil on canvas','a virus monster is playing guitar, oil on canvas'] #['A mysterious orb by Ernst Fuchs']
     #genParams.prompts =  ["""Cyberpunk Knight showing his face, Biopunk, Trending on Artstation, Intelligent, symmetrical, realistic, oil painting, Biopunk, Biopunk, Biopunk, Biopunk, Brushstrokes, Symmetrical, Proportional"""] #['A mysterious orb by Ernst Fuchs']
     #genParams.prompts = ['a cat']
-    genParams.prompts = ['a cat by anton fadeev'] #] #['a cat'] #None #'a cat'
+    #genParams.prompts = ['a cat by anton fadeev'] #] #['a cat'] #None #'a cat'
     genParams.CFGprompts = None #['a cat']
     genParams.CLIPprompts = None #['a digital painting by anton fadeev']#['A mysterious orb by Ernst Fuchs'] #NONE
     
@@ -43,7 +43,7 @@ def DoGenerate(kdiffReq):
                                 # Good values are 16 for 256x256 and 64-128 for 512x512.
     genParams.cut_pow = 0.5               # 0.5 - 
     genParams.seed = 2226809351
-    genParams.num_images_to_sample = 1    # 64 - not sure? -- seems to act as 'number of batches'
+    genParams.num_images_to_sample = 4    # 64 - not sure? -- seems to act as 'number of batches'
     # This can be an URL or Colab local path and must be in quotes.
     #genParams.init_image = None
     genParams.sigma_start = 10   # The starting noise level when using an init image.
@@ -74,7 +74,8 @@ def DoGenerate(kdiffReq):
 
     clipguided = genParams.clip_guidance_scale != 0
 
-    clipwrap, modelwrap = kdiffer.CreateModels(clipModelNum, 2) #0=RDM, 1=UNCOND, 2=SD
+    clipwrap = kdiffer.CreateClipModel(clipModelNum) 
+    modelwrap = kdiffer.CreateModel("sd-v1-3-full-ema")
 
     #torch.autograd.set_detect_anomaly(True)
 

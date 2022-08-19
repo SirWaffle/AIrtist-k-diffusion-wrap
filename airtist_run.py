@@ -28,32 +28,7 @@ def CreateKDiffer() -> kdiffWrap.KDiffWrap:
     return kdiffer
 
 
-
-def CreateModelsWithCaching(kdiffer:kdiffWrap.KDiffWrap, modelNum, clipModelNum) -> kdiffWrap.KDiffWrap:
-    #todo: make work with any models..
-    if kdiffer.CurClipWrap != None and kdiffer.CurModelWrap != None:
-        return kdiffer.CurClipWrap, kdiffer.CurModelWrap
-    clipwrap, modelwrap = kdiffer.CreateModels(clipModelNum)
-    return clipwrap, modelwrap
-    #if any model number changes, reload, otherwise skip it
-    if kdiffer.CurClipWrap != None and kdiffer.CurModelWrap != None:
-        if kdiffer.CurClipWrap.modelNum == clipModelNum and kdiffer.CurModelWrap.modelNum == modelNum:
-            print("Using cached clip and models")
-            return kdiffer.CurClipWrap, kdiffer.CurModelWrap
-    
-    clipwrap, modelwrap = kdiffer.CreateModels(modelNum, clipModelNum)
-    return clipwrap, modelwrap
-
-
-
-def DoGenerateOneShot(kdiffReq): 
-    # kdiff req is a struct KDiffRequest from c#
-    kdiffer = CreateKDiffer()
-    return DoGenerate(kdiffReq, kdiffer)
-
-
-
-def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap):
+def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
 
     ## Generation Settings
     print(str(kdiffReq))
@@ -107,7 +82,7 @@ def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap):
     genParams.image_size_y = kdiffReq.image_size_y
 
     #clipwrap, modelwrap = kdiffer.CreateModels(kdiffReq.model, kdiffReq.clipModel)
-    clipwrap, modelwrap = CreateModelsWithCaching(kdiffer, kdiffReq.model, kdiffReq.clipModel)
+    #clipwrap, modelwrap = CreateModelsWithCaching(kdiffer, kdiffReq.model, kdiffReq.clipModel)
     gridPilImage, individualPilImages = kdiffer.internal_run(genParams, clipwrap, modelwrap)
 
     #gridPilImage, individualPilImages = internal_run.internal_run(genParams, kdiffReq.model, kdiffReq.clipModel)
@@ -122,26 +97,12 @@ def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap):
     return c_sharp_bytes
 
 
+########
+## AIArtist callable from c#
+#########
 
-
-def GenerateWithCache(kdiffReq, kdiffer): 
+def Generate(kdiffReq, kdiffer, clipwrap, modelwrap): 
     gc.collect()
-    ret = DoGenerate(kdiffReq, kdiffer)
-    gc.collect()
-    return ret
-
-
-
-def Generate(kdiffReq): 
-    gc.collect()
-    ret = DoGenerateOneShot(kdiffReq)
+    ret = DoGenerate(kdiffReq, kdiffer, clipwrap, modelwrap)
     gc.collect()
     return ret
-    try:
-        gc.collect()
-        ret = DoGenerate(kdiffReq)
-        gc.collect()
-        return ret
-    except:
-        print("error - exception caught")
-        return Array[Byte]()
