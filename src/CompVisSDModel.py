@@ -2,9 +2,7 @@
 import sys
 
 sys.path.append('./../k-diffusion')
-sys.path.append('./../guided-diffusion')
-sys.path.append('./../v-diffusion-pytorch')
-sys.path.append('./../latent-diffusion')
+sys.path.append('./../stable-diffusion')
 
 
 import k_diffusion as K
@@ -80,7 +78,7 @@ class CondFnClipGuidedCompvisObj:
 
 
 
-class CompVisRDMModel(modelWrap.ModelWrap):
+class CompVisSDModel(modelWrap.ModelWrap):
     def __init__(self):
         self.model_path = None
         self.config_path = None        
@@ -98,19 +96,21 @@ class CompVisRDMModel(modelWrap.ModelWrap):
 
 
     def ModelLoadSettings(self):
-        self.config_path = "D:/AIrtist/k-diffusion-wrap/stable-diffusion/configs/retrieval-augmented-diffusion/768x768.yaml"
-        self.model_path = "E:/MLModels/diffusion/ldm-compvis/RDM768x768_LD.ckpt" 
-        self.default_image_size_x = 768
-        self.default_image_size_y = 768
-        self.channels = 16
+        self.config_path = "D:/AIrtist/k-diffusion-wrap/stable-diffusion/configs/stable-diffusion/v1-inference.yaml"
+        self.model_path = "E:/MLModels/stableDiffusion/sd-v1-3-full-ema.ckpt" 
+        self.default_image_size_x = 512
+        self.default_image_size_y = 512
+        self.channels = 4
 
 
     def LoadModel(self, device):
         self.model_config = OmegaConf.load(self.config_path)
-
         self.model = instantiate_from_config(self.model_config.model)
+
         self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
-        self.model.requires_grad_(True).eval().to(device)
+        #self.model.requires_grad_(True).eval().to(device)
+        #self.model.eval().half().to(device)
+        self.model.eval().to(device)
 
         self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
         self.default_imageTensorSize = self.default_image_size_x//16  
@@ -123,20 +123,27 @@ class CompVisRDMModel(modelWrap.ModelWrap):
         if y == -1:
             y = self.default_image_size_y
 
-        image_size_x = x - (x % 16)
+        image_size_x = x - (x % 8) #rdm was 16
         image_size_y = image_size_x
-        inst.image_tensor_size = image_size_x//16 
+        inst.image_tensor_size = image_size_x//8 #rdm was 16 
         inst.image_size_x = image_size_x
         inst.image_size_y = image_size_y
 
         return inst
-
+        
+    def CreateModelInstance(self, device, clipWrapper:clipWrap.ClipWrap, genParams:paramsGen.ParamsGen, clip_guided) -> modelWrap.ModelContext:
+        inst = modelWrap.ModelContext()
+        inst.modelWrap = self
+        #inst.precision = 'autocast' #faster, but is it worse?
+        return inst
 
     def CreateCFGDenoiser(self, inst:modelWrap.ModelContext, clipEncoder:clipWrap.ClipWrap, cfgPrompts, condScale, genParams:paramsGen.ParamsGen):
-        clipTextEmbed = clipWrap.FrozenCLIPTextEmbedder(clipEncoder.model)
-        inst.target_cfg_embeds = clipTextEmbed.encode(cfgPrompts).float()
-        c = inst.target_cfg_embeds
-        uc = torch.zeros_like(c)
+        #clipTextEmbed = clipWrap.FrozenCLIPTextEmbedder(clipEncoder.model)
+        #inst.target_cfg_embeds = clipTextEmbed.encode(cfgPrompts).float()
+        #c = inst.target_cfg_embeds
+        c = inst.modelWrap.model.get_learned_conditioning(cfgPrompts)
+        #uc = torch.zeros_like(c)
+        uc = inst.modelWrap.model.get_learned_conditioning(1 * [""])
         inst.extra_args = {'cond': c, 'uncond': uc, 'cond_scale': condScale}
 
         inst.kdiffModelWrap = denoisers.CFGDenoiser(self.kdiffExternalModelWrap)

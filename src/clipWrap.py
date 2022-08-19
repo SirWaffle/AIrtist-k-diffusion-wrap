@@ -1,23 +1,16 @@
-import gc
-import io
-import math
+
 import sys
 
 sys.path.append('./../aesthetic-predictor')
 
 import torch
 from torch import nn
-from torch.nn import functional as F
-from torchvision import transforms, utils
-from torchvision.transforms import functional as TF
+from torchvision import transforms
 
 import clip
-import torch
-from torch import nn
-from einops import rearrange, repeat
+from einops import repeat
 import lpips
 import utilFuncs
-import cutouts
 
 
 

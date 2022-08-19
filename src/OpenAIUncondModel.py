@@ -1,44 +1,77 @@
-
-import gc
-import io
-import math
 import sys
 
 sys.path.append('./../k-diffusion')
 sys.path.append('./../guided-diffusion')
 sys.path.append('./../v-diffusion-pytorch')
 
-from functools import partial
-
-import clip
-import k_diffusion as K
-import lpips
-from PIL import Image
 import torch
-from torch import nn
-from torch.nn import functional as F
-from torchvision import transforms, utils
-from torchvision.transforms import functional as TF
-from tqdm.notebook import tqdm
-from loguru import logger
-from torchvision.utils import make_grid
 
-from omegaconf import OmegaConf
-from ldm.util import instantiate_from_config
+from loguru import logger
 
 import denoisers
-import cutouts
 import paramsGen
-import cond_fns
 import lossFunctions
-import utilFuncs
-import noiseSched
-import model_create
 import clipWrap
-import cond_fns
 import modelWrap
 
-from ldm.modules.encoders.modules import FrozenCLIPTextEmbedder
+import k_diffusion as K
+import torch
+from guided_diffusion.script_util import (create_model_and_diffusion,
+                                          model_and_diffusion_defaults)
+
+
+
+class CondFnClipGuidedObj:
+    def __init__(self, model, clipWrapper:clipWrap.ClipWrap, modelCtx:modelWrap.ModelContext, genParams):
+        super().__init__()
+        self.normalize = clipWrapper.normalize
+        self.clipWrapper:clipWrap.ClipWrap = clipWrapper
+        self.lpips_model = clipWrapper.lpips_model
+        self.genParams:paramsGen.ParamsGen = genParams
+
+        self.model = model
+        self.modelCtx:modelWrap.ModelContext = modelCtx
+    
+    def uncond_fn(self, x, sigma, denoised, **kwargs):
+        logger.debug("uncond_fn")
+
+    def cond_fn(self, x, sigma, denoised, **kwargs):
+        batches = denoised.shape[0]
+
+        #print("batches:", batches)
+        #print("denoise: ", denoised.shape)
+        #print("x:", x.shape)
+        #print("sigma: ", sigma.shape)
+        
+        n = x.shape[0]
+        # Anti-grain hack for the 256x256 ImageNet model
+        #fac = sigma / (sigma ** 2 + 1) ** 0.5
+        #denoised_in = x.lerp(denoised, fac)
+        #denoised_in = denoised
+
+        clip_in = self.normalize(self.modelCtx.make_cutouts(denoised.add(1).div(2)))
+        image_embeds = self.clipWrapper.model.encode_image(clip_in).float()
+
+        loss = None
+
+        if self.genParams.clip_guidance_scale != 0:
+            dists = lossFunctions.spherical_dist_loss(image_embeds[:, None], self.modelCtx.target_clip_embeds[None])
+            dists = dists.view([self.genParams.cutn, n, -1])
+            losses = dists.mul(self.modelCtx.clip_weights).sum(2).mean(0)
+            tv_losses = lossFunctions.tv_loss(denoised)
+            range_losses = lossFunctions.range_loss(denoised)#todo: denopised or denoised in
+            loss = losses.sum() * self.genParams.overall_clip_scale * ( self.genParams.clip_guidance_scale + tv_losses.sum() * self.genParams.tv_scale + range_losses.sum() * self.genParams.range_scale)
+
+        if self.genParams.aesthetics_scale != 0:
+            ascore = self.clipWrapper.GetAestheticRatingFromEmbed(image_embeds)
+            loss = loss.sum() + self.genParams.aesthetics_scale * ascore
+
+        if self.modelCtx.init is not None and self.genParams.init_scale:
+            init_losses = self.lpips_model(denoised, self.modelCtx.init)
+            loss = loss + init_losses.sum() * self.genParams.init_scale
+
+        return -torch.autograd.grad(loss, x)[0]
+
 
 
 
@@ -68,7 +101,36 @@ class OpenAIUncondModel(modelWrap.ModelWrap):
 
 
     def LoadModel(self, device):
-        self.model_config, self.model, self.kdiffExternalModelWrap = model_create.CreateOpenAIModel(self.model_path, self.default_image_size_x, device, True)    
+        self.model_config = model_and_diffusion_defaults()
+        self.model_config.update({
+            'attention_resolutions': '32, 16, 8',
+            'class_cond': False,
+            'diffusion_steps': 1000,
+            'rescale_timesteps': True,
+            'timestep_respacing': '1000',
+            'learn_sigma': True,
+            'noise_schedule': 'linear',
+            'num_channels': 256,
+            'num_head_channels': 64,
+            'num_res_blocks': 2,
+            'resblock_updown': True,
+            'use_checkpoint': False,
+            'use_fp16': True,
+            'use_scale_shift_norm': True,
+        })
+        self.model_config['image_size'] = self.default_image_size_x
+        model_path = model_path
+
+        self.model, diffusion = create_model_and_diffusion(**self.model_config)
+        self.model.load_state_dict(torch.load(model_path, map_location='cpu'), strict=True)
+        self.model.requires_grad_(False).eval().to(device)
+        if self.model_config['use_fp16']:
+            self.model.convert_to_fp16()
+
+        self.kdiffExternalModelWrap = K.external.OpenAIDenoiser(self.model, diffusion, device=device)
+
+
+
         self.imageTensorSize = self.default_image_size_x
 
         #self.model_config = OmegaConf.load(self.config_path)
@@ -103,7 +165,7 @@ class OpenAIUncondModel(modelWrap.ModelWrap):
         inst.target_clip_embeds.extend(target_embeds)
         inst.clip_weights.extend(weights)
 
-        inst.condFns = cond_fns.CondFnClipGuidedObj(self.model, cw, inst, genParams)       
+        inst.condFns = CondFnClipGuidedObj(self.model, cw, inst, genParams)       
 
         inner_model = inst.kdiffModelWrap
         if inner_model == None:

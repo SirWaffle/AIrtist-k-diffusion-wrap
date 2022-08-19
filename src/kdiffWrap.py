@@ -7,38 +7,30 @@ sys.path.append('./../k-diffusion')
 sys.path.append('./../guided-diffusion')
 sys.path.append('./../v-diffusion-pytorch')
 
-from functools import partial
 
-import clip
 import k_diffusion as K
-import lpips
 from PIL import Image
 import torch
-from torch import nn
-from torch.nn import functional as F
 from torchvision import transforms, utils
 from torchvision.transforms import functional as TF
 from tqdm.notebook import tqdm
 from loguru import logger
 from torchvision.utils import make_grid
+from torch import autocast
+from contextlib import contextmanager, nullcontext
 
-from omegaconf import OmegaConf
 #from ldm.util import instantiate_from_config
 
-import denoisers
 import cutouts
 import paramsGen
-import cond_fns
-import lossFunctions
 import utilFuncs
-import noiseSched
-import model_create
 import clipWrap
 import modelWrap
 import CompVisRDMModel
 import OpenAIUncondModel
+import CompVisSDModel
 
-from ldm.modules.encoders.modules import FrozenCLIPTextEmbedder
+#from ldm.modules.encoders.modules import FrozenCLIPTextEmbedder
 
 
 class KDiffWrap:
@@ -60,7 +52,9 @@ class KDiffWrap:
         clipwrapper.LoadModel(self.torchDevice)
 
         # MODEL wrapper settings...
-        if modelNum == 1:
+        if modelNum == 2:
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+        elif modelNum == 1:
             modelwrapper = OpenAIUncondModel.OpenAIUncondModel()
         else:
             modelwrapper = CompVisRDMModel.CompVisRDMModel()
@@ -290,18 +284,21 @@ class KDiffWrap:
 
 
         #for i in range(genParams.n_batches):
+
+        precision_scope = autocast if hasattr(modelCtx, 'precision') and modelCtx.precision=="autocast" else nullcontext
         with torch.no_grad():
-            if hasattr(mw.model, 'ema_scope'):
-                with mw.model.ema_scope():
+            with precision_scope("cuda"):
+                if hasattr(mw.model, 'ema_scope'):
+                    with mw.model.ema_scope():
+                        samples = doSamples(genParams.sampleMethod.lower())
+                else:
                     samples = doSamples(genParams.sampleMethod.lower())
-            else:
-                samples = doSamples(genParams.sampleMethod.lower())
 
         ############
         # end gen loop
         ################
-
-        samples = mw.DecodeImage(samples)
+        with precision_scope("cuda"):
+            samples = mw.DecodeImage(samples)
 
         #TODO: combine all the samples into a grid somehow
         imgsList = []

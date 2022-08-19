@@ -1,43 +1,9 @@
-
-import gc
-import io
-import math
 import sys
 
-sys.path.append('./../k-diffusion')
-sys.path.append('./../guided-diffusion')
-sys.path.append('./../v-diffusion-pytorch')
 
-from functools import partial
-
-import clip
-import k_diffusion as K
-import lpips
-from PIL import Image
-import torch
-from torch import nn
-from torch.nn import functional as F
-from torchvision import transforms, utils
-from torchvision.transforms import functional as TF
-from tqdm.notebook import tqdm
-from loguru import logger
-from torchvision.utils import make_grid
-
-from omegaconf import OmegaConf
-#from ldm.util import instantiate_from_config
-
-import denoisers
-import cutouts
 import paramsGen
-import cond_fns
-import lossFunctions
-import utilFuncs
 import noiseSched
-import model_create
 import clipWrap
-import cond_fns
-
-from ldm.modules.encoders.modules import FrozenCLIPTextEmbedder
 
 
 
