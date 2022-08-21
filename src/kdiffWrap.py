@@ -19,6 +19,7 @@ from loguru import logger
 from torchvision.utils import make_grid
 from torch import autocast
 from contextlib import contextmanager, nullcontext
+import torch.onnx 
 
 #from ldm.util import instantiate_from_config
 
@@ -33,12 +34,46 @@ import CompVisSDModel
 
 #from ldm.modules.encoders.modules import FrozenCLIPTextEmbedder
 
+#hard coded badness...
+CONVERT_TO_ONNX = False
+
+def ConvertToONNX(modelCtx:modelWrap.ModelContext, dummy_input):
+    #hmm, doenst work yet, need to figure out hwo to use 'c' in here
+    #maybe add another node in fromt of this all that takes the input
+    #+a tensor of the encoded prompt, then something? i dunno
+    # Export the model   
+    sigmaTensor = torch.FloatTensor([0.1]).cuda()
+    #condTensor = torch.FloatTensor([0.0]).cuda()
+    #uncondTensor = torch.full((0,77), 0.1).cuda() #torch.FloatTensor([12.0]).cuda()
+    condTensor = modelCtx.modelWrap.model.get_learned_conditioning(['']).cuda()
+    uncondTensor = modelCtx.modelWrap.model.get_learned_conditioning(['sampel stupid prompt hellooo']).cuda()
+    condscaleTensor = torch.FloatTensor([0.1]).cuda()
+
+    torch.onnx.export(modelCtx.kdiffModelWrap,         # model being run 
+         (dummy_input, sigmaTensor, condTensor, uncondTensor, condscaleTensor),       # model input (or a tuple for multiple inputs)         
+         "E:/onnxOut/" + modelCtx.modelWrap.modelName + ".onnx",       # where to save the model  
+         export_params=True,  # store the trained parameter weights inside the model file 
+         opset_version=16,    # the ONNX version to export the model to 
+         do_constant_folding=True,  # whether to execute constant folding for optimization 
+         input_names = ['modelInput', 'sigma', 'uncond', 'cond', 'cond_scale'],   # the model's input names 
+         output_names = ['modelOutput'], # the model's output names 
+         dynamic_axes={'modelInput' : {0 : 'batch_size'},    # variable length axes 
+                                'modelOutput' : {0 : 'batch_size'}})
+
+    print(" ") 
+    print('Model has been converted to ONNX') 
 
 class KDiffWrap:
     def __init__(self):
         #torch
         self.torchDevice = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print('Using device:', self.torchDevice, flush=True)
+
+    def DeleteModel(self, model):
+        model = model.model.cpu()
+        del model.model
+        del model
+        return None
 
 
     def CreateModel(self, modelName:str) ->modelWrap.ModelWrap:
@@ -259,6 +294,11 @@ class KDiffWrap:
                             modelCtx.image_tensor_size, modelCtx.image_tensor_size], device=device) * modelCtx.sigmas[0]
             if init is not None:
                 x += init
+
+            if CONVERT_TO_ONNX == True:
+                ConvertToONNX(modelCtx, x)
+                exit()
+
 
             if  sm == "heun":
                 print("sampling: HUEN")

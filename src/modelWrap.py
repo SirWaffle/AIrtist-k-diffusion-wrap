@@ -31,8 +31,8 @@ class ModelContext:
 
 class ModelWrap:
     def __init__(self):
-        self.model_path = None
-        self.config_path = None        
+        self.model_path:str = None
+        self.config_path:str = None        
 
         self.image_size_x = None
         self.image_size_y = None
@@ -45,7 +45,7 @@ class ModelWrap:
 
         self.default_guiding = 'CFG'
 
-        self.modelName = None
+        self.modelName:str = None
 
     def RequestImageSize(self, inst:ModelContext, x, y):
         self.image_size_x = x

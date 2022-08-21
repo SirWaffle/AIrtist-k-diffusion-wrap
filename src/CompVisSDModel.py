@@ -10,6 +10,7 @@ import torch
 from loguru import logger
 from omegaconf import OmegaConf
 from ldm.util import instantiate_from_config
+import onnx
 
 import denoisers
 import paramsGen
@@ -94,6 +95,8 @@ class CompVisSDModel(modelWrap.ModelWrap):
 
         self.default_guiding = 'CFG'
 
+        self.ONNX = False
+
 
     def ModelLoadSettings(self):
         self.config_path = "D:/AIrtist/k-diffusion-wrap/stable-diffusion/configs/stable-diffusion/v1-inference.yaml"
@@ -104,16 +107,25 @@ class CompVisSDModel(modelWrap.ModelWrap):
 
 
     def LoadModel(self, device):
-        self.model_config = OmegaConf.load(self.config_path)
-        self.model = instantiate_from_config(self.model_config.model)
+        if self.ONNX == True:
+            #TODO: this just loads for checking,m need to use onnxruntime, 
+            # create a session, and change how inference is done...
+            #maybe making an ONNXwrapper would help? ugh.
+            self.model = onnx.load("E:/onnxOut/sd-v1-3-full-ema.onnx")
+            self.default_imageTensorSize = self.default_image_size_x//16  
+            self.kdiffExternalModelWrap = self.model
+            self.ONNX = True
 
-        self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
-        #self.model.requires_grad_(True).eval().to(device)
-        #self.model.eval().half().to(device)
-        self.model.eval().to(device)
+        else:
+            self.model_config = OmegaConf.load(self.config_path)
+            self.model = instantiate_from_config(self.model_config.model)
 
-        self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
-        self.default_imageTensorSize = self.default_image_size_x//16  
+            self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
+            #self.model.eval().half().to(device)
+            self.model.eval().to(device)
+
+            self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
+            self.default_imageTensorSize = self.default_image_size_x//16  
 
 
     def RequestImageSize(self, inst:modelWrap.ModelContext, x, y):
@@ -138,15 +150,22 @@ class CompVisSDModel(modelWrap.ModelWrap):
         return inst
 
     def CreateCFGDenoiser(self, inst:modelWrap.ModelContext, clipEncoder:clipWrap.ClipWrap, cfgPrompts, condScale, genParams:paramsGen.ParamsGen):
-        #clipTextEmbed = clipWrap.FrozenCLIPTextEmbedder(clipEncoder.model)
-        #inst.target_cfg_embeds = clipTextEmbed.encode(cfgPrompts).float()
-        #c = inst.target_cfg_embeds
-        c = inst.modelWrap.model.get_learned_conditioning(cfgPrompts)
-        #uc = torch.zeros_like(c)
-        uc = inst.modelWrap.model.get_learned_conditioning(genParams.num_images_to_sample * [""])
+        if self.ONNX == True:
+            clipTextEmbed = clipWrap.FrozenCLIPTextEmbedder(clipEncoder.model)
+            inst.target_cfg_embeds = clipTextEmbed.encode(cfgPrompts).float()
+            c = inst.target_cfg_embeds
+            uc = torch.zeros_like(c)
+        else:
+            c = inst.modelWrap.model.get_learned_conditioning(cfgPrompts)
+            uc = inst.modelWrap.model.get_learned_conditioning(genParams.num_images_to_sample * [""])
+
         inst.extra_args = {'cond': c, 'uncond': uc, 'cond_scale': condScale}
 
-        inst.kdiffModelWrap = denoisers.CFGDenoiser(self.kdiffExternalModelWrap)
+        if self.ONNX == False:
+            inst.kdiffModelWrap = denoisers.CFGDenoiser(self.kdiffExternalModelWrap)
+        else:
+            inst.kdiffModelWrap = self.model
+        
         return inst
 
 

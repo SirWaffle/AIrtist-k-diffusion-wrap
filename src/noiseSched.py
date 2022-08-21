@@ -27,7 +27,14 @@ import denoisers
 def GetSigmas(genParams: paramsGen.ParamsGen, model_wrap, device):
 
     # default to model sigmas
-    sigmas = model_wrap.get_sigmas(genParams.n_steps)
+    if hasattr(model_wrap, 'get_sigmas'):
+        sigmas = model_wrap.get_sigmas(genParams.n_steps)
+    else:
+        genParams.noiseSchedule = 'karras'
+        sigmas = []
+        smax = 10
+        smin = 0.03
+
     if len(sigmas) > 1:
         smax = max(sigmas).to('cpu')
         smin = min(sigmas).to('cpu')
