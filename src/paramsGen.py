@@ -16,6 +16,10 @@ class ParamsGen():
         self.range_scale = 50            # 50 - Controls how far out of range RGB values are allowed to be.
         self.cutn = 16                   # 16 - The number of random crops per step.
                                     # Good values are 16 for 256x256 and 64-128 for 512x512.
+
+
+        self.overall_clip_scale = 1.0 #scaling for the entire clip calculation ( clip loss, tv scale, range scale)
+
         self.cut_pow = 0.5               # 0.5 - 
         self.seed = None
         self.num_images_to_sample = 2    # 64 - not sure? -- seems to act as 'number of batches'

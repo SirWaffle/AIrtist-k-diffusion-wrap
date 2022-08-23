@@ -23,12 +23,18 @@ import diffusion.models.cc12m_1 as Vdiff
 
 import paramsGen
 import denoisers
-import cond_fns
 
 def GetSigmas(genParams: paramsGen.ParamsGen, model_wrap, device):
 
     # default to model sigmas
-    sigmas = model_wrap.get_sigmas(genParams.n_steps)
+    if hasattr(model_wrap, 'get_sigmas'):
+        sigmas = model_wrap.get_sigmas(genParams.n_steps)
+    else:
+        genParams.noiseSchedule = 'karras'
+        sigmas = []
+        smax = 10
+        smin = 0.03
+
     if len(sigmas) > 1:
         smax = max(sigmas).to('cpu')
         smin = min(sigmas).to('cpu')
@@ -40,12 +46,15 @@ def GetSigmas(genParams: paramsGen.ParamsGen, model_wrap, device):
         smin = max(genParams.sigma_min, smin.to('cpu'))
 
     if genParams.noiseSchedule.lower() == 'model':
+        print("Noise Schedule: MODEL")
         sigmas = model_wrap.get_sigmas(genParams.n_steps)
     
     if genParams.noiseSchedule.lower() == 'karras':
+        print("Noise Schedule:  KARRAS")
         sigmas = K.sampling.get_sigmas_karras(genParams.n_steps, smin, smax, rho=7., device=device)
 
     if genParams.noiseSchedule.lower() == 'exp':
+        print("Noise Schedule: EXP")
         sigmas = K.sampling.get_sigmas_exponential(genParams.n_steps, smin, smax, device=device)
     
     return sigmas

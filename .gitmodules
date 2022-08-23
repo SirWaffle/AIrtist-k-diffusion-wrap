@@ -16,3 +16,6 @@
 [submodule "aesthetic-predictor"]
 	path = aesthetic-predictor
 	url = https://github.com/LAION-AI/aesthetic-predictor.git
+[submodule "stable-diffusion"]
+	path = stable-diffusion
+	url = https://github.com/CompVis/stable-diffusion.git

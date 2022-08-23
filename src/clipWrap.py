@@ -1,15 +1,16 @@
-import gc
-import io
-import math
+
 import sys
 
 sys.path.append('./../aesthetic-predictor')
 
-import clip
 import torch
 from torch import nn
-from einops import rearrange, repeat
+from torchvision import transforms
+
+import clip
+from einops import repeat
 import lpips
+import utilFuncs
 
 
 
@@ -19,6 +20,9 @@ class ClipWrap:
         self.model = None
         self.modelNum = -1
         self.lpips_model = None
+        self.clip_size = None
+        self.normalize = transforms.Normalize(mean=[0.48145466, 0.4578275, 0.40821073],
+                                    std=[0.26862954, 0.26130258, 0.27577711])
 
         self.aestheticModel = AestheticModel()
 
@@ -27,13 +31,13 @@ class ClipWrap:
         self.modelNum = modelNum
 
         if self.modelNum != -1:
-            self.modelPath = "D:/ml/models-clip/ViT-B-16.pt"
+            self.modelPath = "E:/MLModels/clip/ViT-B-16.pt"
 
         if self.modelNum == 2:
-            self.modelPath = "D:/ml/models-clip/ViT-L-14-336px.pt"
+            self.modelPath = "E:/MLModels/clip/ViT-L-14-336px.pt"
 
         if self.modelNum == 3:
-            self.modelPath = "D:/ml/models-clip/ViT-L-14.pt"
+            self.modelPath = "E:/MLmodels/clip/ViT-L-14.pt"
 
     def GetAestheticRatingFromImage(self, image):
         image_features = self.model.encode_image(image)
@@ -51,11 +55,23 @@ class ClipWrap:
     def LoadModel(self, torchDevice):
         self.model = clip.load(self.modelPath, jit=False)[0].eval().requires_grad_(False).to(torchDevice)
         self.lpips_model = lpips.LPIPS(net='vgg').to(torchDevice)
+        self.clip_size = self.model.visual.input_resolution
         
     def LoadAestheticsModel(self, torchDevice):
         self.aestheticModel.CreateModel(torchDevice)
 
-    
+
+    def GetTextPromptEmbeds(self, clip_prompts, device):
+        target_embeds = []
+        weights = []
+        if clip_prompts != None:
+            for prompt in clip_prompts:
+                txt, weight = utilFuncs.parse_prompt(prompt)
+                target_embeds.append(self.model.encode_text(clip.tokenize(txt).to(device)).float())
+                weights.append(weight)
+        return target_embeds, weights
+
+
 
 
 class AestheticModel:
@@ -67,7 +83,7 @@ class AestheticModel:
         """load the aethetic model"""
 
 
-        cache_folder = "D:/AIrtist/wes-diffusion-wrap/aesthetic-predictor"
+        cache_folder = "D:/AIrtist/k-diffusion-wrap/aesthetic-predictor"
         path_to_model = cache_folder + "/sa_0_4_"+clip_model_name+"_linear.pth"
 
         if clip_model_name == "vit_l_14":
