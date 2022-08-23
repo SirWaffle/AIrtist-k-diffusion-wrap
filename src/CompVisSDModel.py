@@ -100,7 +100,7 @@ class CompVisSDModel(modelWrap.ModelWrap):
 
     def ModelLoadSettings(self):
         self.config_path = "D:/AIrtist/k-diffusion-wrap/stable-diffusion/configs/stable-diffusion/v1-inference.yaml"
-        self.model_path = "E:/MLModels/stableDiffusion/sd-v1-3-full-ema.ckpt" 
+        #self.model_path = "E:/MLModels/stableDiffusion/sd-v1-3-full-ema.ckpt" 
         self.default_image_size_x = 512
         self.default_image_size_y = 512
         self.channels = 4
@@ -121,8 +121,8 @@ class CompVisSDModel(modelWrap.ModelWrap):
             self.model = instantiate_from_config(self.model_config.model)
 
             self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
-            #self.model.eval().half().to(device)
-            self.model.eval().to(device)
+            self.model.eval().half().to(device)
+            #self.model.eval().to(device)
 
             self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
             self.default_imageTensorSize = self.default_image_size_x//16  
@@ -136,8 +136,9 @@ class CompVisSDModel(modelWrap.ModelWrap):
             y = self.default_image_size_y
 
         image_size_x = x - (x % 8) #rdm was 16
-        image_size_y = image_size_x
-        inst.image_tensor_size = image_size_x//8 #rdm was 16 
+        image_size_y = y - (y % 8)
+        inst.image_tensor_size_x = image_size_x//8 #rdm was 16 
+        inst.image_tensor_size_y = image_size_y//8
         inst.image_size_x = image_size_x
         inst.image_size_y = image_size_y
 
@@ -146,7 +147,7 @@ class CompVisSDModel(modelWrap.ModelWrap):
     def CreateModelInstance(self, device, clipWrapper:clipWrap.ClipWrap, genParams:paramsGen.ParamsGen, clip_guided) -> modelWrap.ModelContext:
         inst = modelWrap.ModelContext()
         inst.modelWrap = self
-        #inst.precision = 'autocast' #faster, but is it worse?
+        inst.precision = 'autocast' #faster, but is it worse?
         return inst
 
     def CreateCFGDenoiser(self, inst:modelWrap.ModelContext, clipEncoder:clipWrap.ClipWrap, cfgPrompts, condScale, genParams:paramsGen.ParamsGen):

@@ -125,7 +125,8 @@ class CompVisRDMModel(modelWrap.ModelWrap):
 
         image_size_x = x - (x % 16)
         image_size_y = image_size_x
-        inst.image_tensor_size = image_size_x//16 
+        inst.image_tensor_size_x = image_size_x//16 
+        inst.image_tensor_size_y = image_size_y//16 
         inst.image_size_x = image_size_x
         inst.image_size_y = image_size_y
 

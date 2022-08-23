@@ -26,7 +26,8 @@ class ModelContext:
 
         self.image_size_x = None
         self.image_size_y = None
-        self.image_tensor_size = None
+        self.image_tensor_size_x = None
+        self.image_tensor_size_y = None
 
 
 class ModelWrap:

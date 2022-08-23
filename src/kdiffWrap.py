@@ -73,6 +73,7 @@ class KDiffWrap:
         model = model.model.cpu()
         del model.model
         del model
+        gc.collect()
         return None
 
 
@@ -81,6 +82,23 @@ class KDiffWrap:
         if modelName.lower() == "sd-v1-3-full-ema":
             modelwrapper = CompVisSDModel.CompVisSDModel()
             modelwrapper.modelName = "sd-v1-3-full-ema"
+            modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-3-full-ema.ckpt" 
+        elif modelName.lower() == "sd-v1-4":
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+            modelwrapper.modelName = "sd-v1-4"
+            modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-4.ckpt"  
+        elif modelName.lower() == "sd-v1-3":
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+            modelwrapper.modelName = "sd-v1-3"
+            modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-3.ckpt"  
+        elif modelName.lower() == "sd-v1-2":
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+            modelwrapper.modelName = "sd-v1-2"
+            modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-2.ckpt"  
+        elif modelName.lower() == "sd-v1-1":
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+            modelwrapper.modelName = "sd-v1-1"
+            modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-1.ckpt"             
         elif modelName.lower() == "rdm":
             modelwrapper = CompVisRDMModel.CompVisRDMModel()
             modelwrapper.modelName = "rdm"
@@ -114,12 +132,14 @@ class KDiffWrap:
 
     def internal_run(self, genParams:paramsGen.ParamsGen, cw:clipWrap.ClipWrap, mw:modelWrap.ModelWrap): 
 
-        if genParams.aesthetics_scale != 0:
+
+        if genParams.aesthetics_scale != 0 and cw != None:
             if cw.aestheticModel.amodel == None:
                 cw.LoadAestheticsModel(self.torchDevice)
-        else:
-            cw.aestheticModel.amodel = None
-            gc.collect()
+        elif cw != None and cw.aestheticModel != None:
+            cw.aestheticModel.amodel = None            
+
+        gc.collect()
 
         if genParams.image_prompts != None and len(genParams.image_prompts) > 0 and len(genParams.image_prompts) < genParams.num_images_to_sample:
             while len(genParams.image_prompts) < genParams.num_images_to_sample:
@@ -180,7 +200,8 @@ class KDiffWrap:
 
         print('========= PARAMS ==========')
         print("Model: " + str(mw.model_path))
-        print("Clip Num:" + str(cw.modelNum))
+        if cw != None:
+            print("Clip Num:" + str(cw.modelNum))
         attrs = vars(genParams)
         # now dump this in some way or another
         print(', '.join("%s: %s" % item for item in attrs.items()))
@@ -188,6 +209,8 @@ class KDiffWrap:
 
 
         torch.cuda.empty_cache()
+        #causes a crash ...
+        #torch.backends.cudnn.benchmark = True
 
         modelCtx = mw.CreateModelInstance(self.torchDevice, cw, genParams, clipguided)
 
@@ -211,11 +234,11 @@ class KDiffWrap:
         ################
 
 
-
-        if genParams.cutoutMethod.lower() == 'grid':
-            modelCtx.make_cutouts = cutouts.MakeGridCutouts(cw.clip_size, genParams.cutn, genParams.cut_pow)
-        else:
-            modelCtx.make_cutouts = cutouts.MakeCutoutsRandom(cw.clip_size, genParams.cutn, genParams.cut_pow)
+        if cw != None:
+            if genParams.cutoutMethod.lower() == 'grid':
+                modelCtx.make_cutouts = cutouts.MakeGridCutouts(cw.clip_size, genParams.cutn, genParams.cut_pow)
+            else:
+                modelCtx.make_cutouts = cutouts.MakeCutoutsRandom(cw.clip_size, genParams.cutn, genParams.cut_pow)
 
 
         side_x = modelCtx.image_size_x
@@ -291,7 +314,7 @@ class KDiffWrap:
         
         def doSamples(sm: str):
             x = torch.randn([genParams.num_images_to_sample, modelCtx.modelWrap.channels, 
-                            modelCtx.image_tensor_size, modelCtx.image_tensor_size], device=device) * modelCtx.sigmas[0]
+                            modelCtx.image_tensor_size_y, modelCtx.image_tensor_size_x], device=device) * modelCtx.sigmas[0]
             if init is not None:
                 x += init
 

@@ -11,6 +11,7 @@ import paramsGen
 import kdiffWrap
 import ProfilerHelper
 import torch
+from torch.profiler import profile, record_function, ProfilerActivity
 
 #@ProfilerHelper.profile(sort_by='cumulative', lines_to_print=80, strip_dirs=False)
 def DoGenerate(kdiffReq): 
@@ -74,10 +75,23 @@ def DoGenerate(kdiffReq):
 
     clipguided = genParams.clip_guidance_scale != 0
 
-    clipwrap = kdiffer.CreateClipModel(clipModelNum) 
-    modelwrap = kdiffer.CreateModel("sd-v1-3-full-ema")
+    genParams.image_size_x = 1024
+    genParams.image_size_y = 1024
+
+    clipwrap = None #kdiffer.CreateClipModel(clipModelNum) 
+    modelwrap = kdiffer.CreateModel("sd-v1-4")
 
     #torch.autograd.set_detect_anomaly(True)
+
+    #with profile(activities=[
+    #        ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True, profile_memory=True,) as prof:
+    #    with record_function("model_inference"):
+    #        gridPilImage, individualPilImages = kdiffer.internal_run(genParams, clipwrap, modelwrap)
+
+    #with open("prof.txt", "w") as external_file:
+    #    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10), file=external_file)
+    #    external_file.close()
+            
 
     gridPilImage, individualPilImages = kdiffer.internal_run(genParams, clipwrap, modelwrap)
 
