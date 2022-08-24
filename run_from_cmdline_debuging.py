@@ -68,7 +68,7 @@ def DoGenerate(kdiffReq):
     genParams.cutoutMethod = "RANDOM" 
 
 
-    kdiffer = kdiffWrap.KDiffWrap()
+    kdiffer = kdiffWrap.KDiffWrap() #default device is cuda:0, but you can pass 'cpu' to run on CPU
 
 
     genParams.image_size_x = 512
