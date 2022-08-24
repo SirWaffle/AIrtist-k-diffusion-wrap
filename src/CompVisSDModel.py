@@ -11,6 +11,9 @@ from loguru import logger
 from omegaconf import OmegaConf
 from ldm.util import instantiate_from_config
 import onnx
+from einops import rearrange, repeat
+from transformers import CLIPTokenizer, CLIPTextModel
+import torch.nn as nn
 
 import denoisers
 import paramsGen
@@ -21,7 +24,7 @@ import modelWrap
 #from ldm.modules.encoders.modules import FrozenCLIPTextEmbedder
 
 
-
+# clip guidance
 class CondFnClipGuidedCompvisObj:
     def __init__(self, model, clipWrapper:clipWrap.ClipWrap, modelCtx:modelWrap.ModelContext, genParams):
         super().__init__()
@@ -79,6 +82,38 @@ class CondFnClipGuidedCompvisObj:
 
 
 
+# clip text encoder. dont rely on the one ins table-diffusion, it always loads to cuda
+class FrozenCLIPEmbedder(nn.Module):
+    """Uses the CLIP transformer encoder for text (from Hugging Face)"""
+    def __init__(self, clipPath="openai/clip-vit-large-patch14", device="cuda", max_length=77):
+        super().__init__()
+        self.tokenizer = CLIPTokenizer.from_pretrained(clipPath)
+        self.transformer = CLIPTextModel.from_pretrained(clipPath).to(device)
+        self.device = device
+        self.max_length = max_length
+        self.freeze()
+
+    def freeze(self):
+        self.transformer = self.transformer.eval()
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def forward(self, text):
+        batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
+                                        return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
+        tokens = batch_encoding["input_ids"].to(self.device)
+        outputs = self.transformer(input_ids=tokens)
+
+        z = outputs.last_hidden_state
+        return z
+
+    def encode(self, text):
+        return self(text)
+
+
+
+
+
 class CompVisSDModel(modelWrap.ModelWrap):
     def __init__(self):
         self.model_path = None
@@ -97,6 +132,8 @@ class CompVisSDModel(modelWrap.ModelWrap):
 
         self.ONNX = False
 
+        self.frozenClip:FrozenCLIPEmbedder = None
+
 
     def ModelLoadSettings(self):
         self.config_path = "D:/AIrtist/k-diffusion-wrap/stable-diffusion/configs/stable-diffusion/v1-inference.yaml"
@@ -107,6 +144,16 @@ class CompVisSDModel(modelWrap.ModelWrap):
 
 
     def LoadModel(self, device):
+        #load the clip text embedder we need for converting tex tto embeds.
+        #we could probably dump this if we have the clipwrapper loaded for clip guidance to save memory...
+        #TODO!
+        #but for now, this will work
+
+        #hrm, huggingface repo of: clip-vit-large-patch14
+        # is NOT the same as the model pulled down... it follows a different code path. figure this out...
+        #self.frozenClip = FrozenCLIPEmbedder("E:/MLModels/clip/clip-vit-large-patch14",device)
+        self.frozenClip = FrozenCLIPEmbedder(device = device)
+
         if self.ONNX == True:
             #TODO: this just loads for checking,m need to use onnxruntime, 
             # create a session, and change how inference is done...
@@ -121,8 +168,10 @@ class CompVisSDModel(modelWrap.ModelWrap):
             self.model = instantiate_from_config(self.model_config.model)
 
             self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
-            self.model.eval().half().to(device)
-            #self.model.eval().to(device)
+            if str(device) == 'cpu':
+                self.model.eval().to(torch.float32).to(device)
+            else:
+                self.model.eval().half().to(device)
 
             self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
             self.default_imageTensorSize = self.default_image_size_x//16  
@@ -147,18 +196,25 @@ class CompVisSDModel(modelWrap.ModelWrap):
     def CreateModelInstance(self, device, clipWrapper:clipWrap.ClipWrap, genParams:paramsGen.ParamsGen, clip_guided) -> modelWrap.ModelContext:
         inst = modelWrap.ModelContext()
         inst.modelWrap = self
-        inst.precision = 'autocast' #faster, but is it worse?
+        if str(device) == 'cpu':
+            inst.precision = None
+        else:
+            inst.precision = 'autocast' #faster, but is it worse?
         return inst
 
     def CreateCFGDenoiser(self, inst:modelWrap.ModelContext, clipEncoder:clipWrap.ClipWrap, cfgPrompts, condScale, genParams:paramsGen.ParamsGen):
         if self.ONNX == True:
+            #!TODO! this frozenclipembedder doesnt seem to be the same one SD uses...the one defined in this object is a copy of it
+            #this should probably be changed once thats confirmed
             clipTextEmbed = clipWrap.FrozenCLIPTextEmbedder(clipEncoder.model)
             inst.target_cfg_embeds = clipTextEmbed.encode(cfgPrompts).float()
             c = inst.target_cfg_embeds
             uc = torch.zeros_like(c)
-        else:
-            c = inst.modelWrap.model.get_learned_conditioning(cfgPrompts)
-            uc = inst.modelWrap.model.get_learned_conditioning(genParams.num_images_to_sample * [""])
+        else:            
+            #c = inst.modelWrap.model.get_learned_conditioning(cfgPrompts)
+            #uc = inst.modelWrap.model.get_learned_conditioning(genParams.num_images_to_sample * [""])
+            c = self.frozenClip.encode(cfgPrompts)
+            uc = self.frozenClip.encode(genParams.num_images_to_sample * [""])
 
         inst.extra_args = {'cond': c, 'uncond': uc, 'cond_scale': condScale}
 

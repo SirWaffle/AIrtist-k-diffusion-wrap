@@ -75,8 +75,8 @@ def DoGenerate(kdiffReq):
     genParams.image_size_y = 512
 
     #dont need to load an extra clip model with sd-v1-4, comment it out for SD
-    clipwrap = kdiffer.CreateClipModel("vit-l-14") 
-    modelwrap = kdiffer.CreateModel("rdm") #"sd-v1-4")
+    clipwrap = None#kdiffer.CreateClipModel("vit-l-14") 
+    modelwrap = kdiffer.CreateModel("sd-v1-4")
 
     #torch.autograd.set_detect_anomaly(True)
 

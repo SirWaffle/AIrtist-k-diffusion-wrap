@@ -99,7 +99,8 @@ class AestheticModel:
 
 
 
-
+#this was used for the RDM model, from latent-diffusion
+#stable diffusion has this, plus another one, so we need the second one for that
 class FrozenCLIPTextEmbedder(nn.Module):
     """
     Uses the CLIP transformer encoder for text.

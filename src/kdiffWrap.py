@@ -64,9 +64,9 @@ def ConvertToONNX(modelCtx:modelWrap.ModelContext, dummy_input):
     print('Model has been converted to ONNX') 
 
 class KDiffWrap:
-    def __init__(self):
+    def __init__(self, deviceName:str = 'cuda:0'):
         #torch
-        self.torchDevice = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.torchDevice = torch.device(deviceName)
         print('Using device:', self.torchDevice, flush=True)
 
     def DeleteModel(self, model:modelWrap.ModelWrap):
@@ -369,9 +369,14 @@ class KDiffWrap:
 
 
 
+        if str(device) == 'cpu':
+            precision_device = "cpu"
+        else:
+            precision_device = "cuda"
+
         precision_scope = autocast if hasattr(modelCtx, 'precision') and modelCtx.precision=="autocast" else nullcontext
         with torch.no_grad():
-            with precision_scope("cuda"):
+            with precision_scope(precision_device):
                 if hasattr(mw.model, 'ema_scope'):
                     with mw.model.ema_scope():
                         samples = doSamples(genParams.sampleMethod.lower())
@@ -381,7 +386,7 @@ class KDiffWrap:
         ############
         # end gen loop
         ################
-        with precision_scope("cuda"):
+        with precision_scope(precision_device):
             samples = mw.DecodeImage(samples)
 
         #TODO: combine all the samples into a grid somehow
