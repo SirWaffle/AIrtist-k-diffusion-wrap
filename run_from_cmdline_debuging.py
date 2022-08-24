@@ -31,7 +31,6 @@ def DoGenerate(kdiffReq):
     
     genParams.prompts = ["photorealistic painting portrait of a beautiful gorgeous majestic young goddess princess figurative liminal complex flat geometric minimalism by oskar schlemmer rembrandt sorolla oil on canvas cosmic levels shimmer pastel color "]
     genParams.init_image = None #[]
-    genParams.image_prompts = None
     genParams.image_prompts = None #["https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"]
     
     #DPM_2 / DPM_2_A .. works for RDM CFG
@@ -51,7 +50,7 @@ def DoGenerate(kdiffReq):
                     # Higher values make the output look more like the init.
     genParams.init_scale = 1000  # This enhances the effect of the init image, a good value is 1000.
 
-    genParams.conditioning_scale = 7.0 #??? 
+    genParams.conditioning_scale = 7.0 #7.0 seems pretty good in general for RDM, 7.0 to 10.0 pretty good for SD
     genParams.sampleMethod = "LMS" #LMS"#"HEUN" #"LMS" #LMS or HEUN
 
     genParams.noiseSchedule = "MODEL"#"KARRAS" #"MODEL"
@@ -60,26 +59,24 @@ def DoGenerate(kdiffReq):
 
     genParams.saveEvery = 999999#5
     
-    genParams.clip_guidance_scale = 0#1000  # 1000 - Controls how much the image should look like the prompt.
+    genParams.clip_guidance_scale = 10000#1000  # 1000 - Controls how much the image should look like the prompt.
 
     genParams.overall_clip_scale = 1.0 #tune down the total value of clip losses...
 
     genParams.aesthetics_scale = 0
 
-    genParams.cutoutMethod = "RANDOM" #EVEN
+    genParams.cutoutMethod = "RANDOM" 
 
-    #modelNum = 7 #7
-    clipModelNum = 3 #3 #3 for RDM  #0 for kdiff LMS
 
     kdiffer = kdiffWrap.KDiffWrap()
 
-    clipguided = genParams.clip_guidance_scale != 0
 
-    genParams.image_size_x = 1024
-    genParams.image_size_y = 1024
+    genParams.image_size_x = 512
+    genParams.image_size_y = 512
 
-    clipwrap = None #kdiffer.CreateClipModel(clipModelNum) 
-    modelwrap = kdiffer.CreateModel("sd-v1-4")
+    #dont need to load an extra clip model with sd-v1-4, comment it out for SD
+    clipwrap = kdiffer.CreateClipModel("vit-l-14") 
+    modelwrap = kdiffer.CreateModel("rdm") #"sd-v1-4")
 
     #torch.autograd.set_detect_anomaly(True)
 

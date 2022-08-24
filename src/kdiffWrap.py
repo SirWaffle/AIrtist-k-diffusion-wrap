@@ -69,35 +69,37 @@ class KDiffWrap:
         self.torchDevice = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print('Using device:', self.torchDevice, flush=True)
 
-    def DeleteModel(self, model):
-        model = model.model.cpu()
+    def DeleteModel(self, model:modelWrap.ModelWrap):
+        model.model = model.model.cpu()
         del model.model
         del model
         gc.collect()
         return None
 
+    def DeleteClipModel(self, model:clipWrap.ClipWrap):
+        model.model = model.model.cpu()
+        del model.model
+        del model
+        gc.collect()
+        return None        
+
 
     def CreateModel(self, modelName:str) ->modelWrap.ModelWrap:
-
+        
         if modelName.lower() == "sd-v1-3-full-ema":
             modelwrapper = CompVisSDModel.CompVisSDModel()
-            modelwrapper.modelName = "sd-v1-3-full-ema"
             modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-3-full-ema.ckpt" 
         elif modelName.lower() == "sd-v1-4":
             modelwrapper = CompVisSDModel.CompVisSDModel()
-            modelwrapper.modelName = "sd-v1-4"
             modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-4.ckpt"  
         elif modelName.lower() == "sd-v1-3":
             modelwrapper = CompVisSDModel.CompVisSDModel()
-            modelwrapper.modelName = "sd-v1-3"
             modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-3.ckpt"  
         elif modelName.lower() == "sd-v1-2":
             modelwrapper = CompVisSDModel.CompVisSDModel()
-            modelwrapper.modelName = "sd-v1-2"
             modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-2.ckpt"  
         elif modelName.lower() == "sd-v1-1":
             modelwrapper = CompVisSDModel.CompVisSDModel()
-            modelwrapper.modelName = "sd-v1-1"
             modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-1.ckpt"             
         elif modelName.lower() == "rdm":
             modelwrapper = CompVisRDMModel.CompVisRDMModel()
@@ -109,16 +111,29 @@ class KDiffWrap:
             raise exception("invalid model")
             
 
+        modelwrapper.modelName = modelName
         modelwrapper.ModelLoadSettings()
         modelwrapper.LoadModel(self.torchDevice)
 
         return modelwrapper
 
 
-    def CreateClipModel(self, clipModelNum) -> clipWrap.ClipWrap:
+    def CreateClipModel(self, modelName:str) -> clipWrap.ClipWrap:
         # CLIP model settings
         clipwrapper = clipWrap.ClipWrap()
-        clipwrapper.ModelLoadSettings(clipModelNum)
+
+        clipwrapper.modelName = modelName
+
+        if modelName.lower() == "vit-b-16":
+            clipwrapper.modelPath = "E:/MLModels/clip/ViT-B-16.pt"
+
+        elif modelName.lower() == "vit-l-14-336":
+            clipwrapper.modelPath = "E:/MLModels/clip/ViT-L-14-336px.pt"
+
+        elif modelName.lower() == "vit-l-14":
+            clipwrapper.modelPath = "E:/MLmodels/clip/ViT-L-14.pt"     
+
+        clipwrapper.ModelLoadSettings()
         clipwrapper.LoadModel(self.torchDevice)
 
         return clipwrapper
@@ -132,7 +147,7 @@ class KDiffWrap:
 
     def internal_run(self, genParams:paramsGen.ParamsGen, cw:clipWrap.ClipWrap, mw:modelWrap.ModelWrap): 
 
-
+        #load or unload aesthetic model, which requires a clip model to be passed in
         if genParams.aesthetics_scale != 0 and cw != None:
             if cw.aestheticModel.amodel == None:
                 cw.LoadAestheticsModel(self.torchDevice)
@@ -141,19 +156,23 @@ class KDiffWrap:
 
         gc.collect()
 
+        #make sure if we have an image prompt, theres one for each sample
         if genParams.image_prompts != None and len(genParams.image_prompts) > 0 and len(genParams.image_prompts) < genParams.num_images_to_sample:
             while len(genParams.image_prompts) < genParams.num_images_to_sample:
                 genParams.image_prompts.append( genParams.image_prompts[0])
 
-        #need to sloppily fix the prompts for sampling more stuff, it requires more prompts...
+        #match number of promtps to number of sample
         if genParams.prompts != None:
+            #add more to match num samples
             if len(genParams.prompts) < genParams.num_images_to_sample:
                 while len(genParams.prompts) < genParams.num_images_to_sample:
                     genParams.prompts.append( genParams.prompts[0])
-
+            
+            #truncate excess
             elif len(genParams.prompts) > genParams.num_images_to_sample + 1:
                 genParams.prompts = genParams.prompts[0:genParams.num_images_to_sample]
 
+            #if we have 1 more than num samples, treat it as a | b | c | d | e = a + b, a + c, a + d, a + e
             elif len(genParams.prompts) == genParams.num_images_to_sample + 1:
                 #append the first entry to the other entries, make a new list
                 new_list = []
@@ -180,7 +199,7 @@ class KDiffWrap:
 
         if mw.default_guiding == 'CFG':
             cfg_prompts = genParams.prompts
-        if mw.default_guiding == 'CLIP' or genParams.clip_guidance_scale != 0:
+        if mw.default_guiding == 'CLIP' or cw != None: #genParams.clip_guidance_scale != 0:
             clip_prompts = genParams.prompts
 
         #if there are cfg prompts, whats in prompts is going to be for clip
@@ -192,16 +211,17 @@ class KDiffWrap:
             clip_prompts = genParams.CLIPprompts
 
         clipguided = False
-        if genParams.clip_guidance_scale != 0 or genParams.aesthetics_scale != 0:
-            if clip_prompts != None:
-                clipguided = True
-        if clipguided == False:
-            clip_prompts = None
+        if cw != None:
+            if genParams.clip_guidance_scale != 0 or genParams.aesthetics_scale != 0:
+                if clip_prompts != None:
+                    clipguided = True
+            if clipguided == False:
+                clip_prompts = None
 
         print('========= PARAMS ==========')
         print("Model: " + str(mw.model_path))
         if cw != None:
-            print("Clip Num:" + str(cw.modelNum))
+            print("Clip Model:" + str(cw.modelName))
         attrs = vars(genParams)
         # now dump this in some way or another
         print(', '.join("%s: %s" % item for item in attrs.items()))
@@ -348,7 +368,6 @@ class KDiffWrap:
             return x_0
 
 
-        #for i in range(genParams.n_batches):
 
         precision_scope = autocast if hasattr(modelCtx, 'precision') and modelCtx.precision=="autocast" else nullcontext
         with torch.no_grad():

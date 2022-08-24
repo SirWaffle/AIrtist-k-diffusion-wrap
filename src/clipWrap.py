@@ -18,7 +18,7 @@ class ClipWrap:
     def __init__(self):
         self.modelPath = None
         self.model = None
-        self.modelNum = -1
+        self.modelName = None
         self.lpips_model = None
         self.clip_size = None
         self.normalize = transforms.Normalize(mean=[0.48145466, 0.4578275, 0.40821073],
@@ -27,17 +27,8 @@ class ClipWrap:
         self.aestheticModel = AestheticModel()
 
 
-    def ModelLoadSettings(self, modelNum):
-        self.modelNum = modelNum
-
-        if self.modelNum != -1:
-            self.modelPath = "E:/MLModels/clip/ViT-B-16.pt"
-
-        if self.modelNum == 2:
-            self.modelPath = "E:/MLModels/clip/ViT-L-14-336px.pt"
-
-        if self.modelNum == 3:
-            self.modelPath = "E:/MLmodels/clip/ViT-L-14.pt"
+    def ModelLoadSettings(self):
+        return
 
     def GetAestheticRatingFromImage(self, image):
         image_features = self.model.encode_image(image)
