@@ -4,7 +4,7 @@ THis is a repo that just wraps some diffusion models, to be called by  c# server
 
 maybe directions if its needed. 
 
-see these for mroe info for now:
+see these ( or any of the other git submodules repos ) for more info for now:
 
 https://github.com/CompVis/stable-diffusion
 
