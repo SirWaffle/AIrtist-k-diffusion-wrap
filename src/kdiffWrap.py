@@ -22,6 +22,7 @@ from contextlib import contextmanager, nullcontext
 import torch.onnx 
 
 #from ldm.util import instantiate_from_config
+import random
 
 import cutouts
 import paramsGen
@@ -186,9 +187,13 @@ class KDiffWrap:
                 genParams.prompts = new_list
                 
 
-
+        seeds = []
         if genParams.seed is not None:
             torch.manual_seed(genParams.seed)
+        else:
+            for i in range(genParams.num_images_to_sample):
+                seeds.append(torch.seed())
+            print('Using Seeds: '.join("%i, " % item for item in seeds))
 
         #cheat for now
         device = self.torchDevice
@@ -305,7 +310,6 @@ class KDiffWrap:
 
             init = mw.EncodeInitImage(init).to(device)
 
-
         if init is not None:
             modelCtx.sigmas = modelCtx.sigmas[modelCtx.sigmas <= genParams.sigma_start]
 
@@ -333,8 +337,22 @@ class KDiffWrap:
         utilFuncs.log_torch_mem("Starting sample loops")
         
         def doSamples(sm: str):
-            x = torch.randn([genParams.num_images_to_sample, modelCtx.modelWrap.channels, 
-                            modelCtx.image_tensor_size_y, modelCtx.image_tensor_size_x], device=device) * modelCtx.sigmas[0]
+            
+            if len(seeds) > 1:
+                imgTensors = []
+                for i in range(genParams.num_images_to_sample):
+                    torch.manual_seed(seeds[i])
+                    randImg = torch.randn([1, modelCtx.modelWrap.channels, 
+                                    modelCtx.image_tensor_size_y, modelCtx.image_tensor_size_x], device=device) * modelCtx.sigmas[0]
+
+                    imgTensors.append(randImg)
+
+                x = torch.cat(imgTensors,0)
+            else:                
+                x = torch.randn([genParams.num_images_to_sample, modelCtx.modelWrap.channels, 
+                                modelCtx.image_tensor_size_y, modelCtx.image_tensor_size_x], device=device) * modelCtx.sigmas[0]
+
+            
             if init is not None:
                 x += init
 
@@ -415,4 +433,4 @@ class KDiffWrap:
             grid = make_grid(samples, rows, padding=0)
             grid = K.utils.to_pil_image(grid)
 
-        return grid, imgsList
+        return grid, imgsList, seeds

@@ -29,6 +29,8 @@ class ModelContext:
         self.image_tensor_size_x = None
         self.image_tensor_size_y = None
 
+        self.tensordtype = None
+
 
 class ModelWrap:
     def __init__(self):

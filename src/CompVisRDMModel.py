@@ -96,6 +96,8 @@ class CompVisRDMModel(modelWrap.ModelWrap):
 
         self.default_guiding = 'CFG'
 
+        self.tensordtype = torch.float32
+
 
     def ModelLoadSettings(self):
         self.config_path = "D:/AIrtist/k-diffusion-wrap/stable-diffusion/configs/retrieval-augmented-diffusion/768x768.yaml"

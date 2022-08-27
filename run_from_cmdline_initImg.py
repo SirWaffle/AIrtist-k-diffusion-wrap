@@ -29,50 +29,54 @@ def DoGenerate(kdiffReq):
     genParams.CFGprompts = None #['a cat']
     genParams.CLIPprompts = None #['a digital painting by anton fadeev']#['A mysterious orb by Ernst Fuchs'] #NONE
     
-    genParams.prompts = ["photorealistic painting portrait of a beautiful gorgeous majestic young goddess princess figurative liminal complex flat geometric minimalism by oskar schlemmer rembrandt sorolla oil on canvas cosmic levels shimmer pastel color "]
-    genParams.init_image = "https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"
+    genParams.prompts = ["a wizard holding an ice staf and torch, with firey eyes, casting a spell of defiance, digital illustration, epic and detailed"]
+    genParams.init_image = "./mspaint.png"
     genParams.image_prompts = None #["https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"]
     
     #DPM_2 / DPM_2_A .. works for RDM CFG
     #LMS seems to work for clip guidance ( HUEUN as well, i think )
 
-    genParams.n_steps = 50               # 1000 - The number of timesteps to use    
-    genParams.tv_scale = 100              # 100 - Controls the smoothness of the final output.
-    genParams.range_scale = 50            # 50 - Controls how far out of range RGB values are allowed to be.
-    genParams.cutn = 32                  # 16 - The number of random crops per step.
-                                # Good values are 16 for 256x256 and 64-128 for 512x512.
-    genParams.cut_pow = 0.5               # 0.5 - 
+    genParams.n_steps = 100              # 1000 - The number of timesteps to use    
+
+
     genParams.seed = 646941043242600 #None #2226809351
     genParams.num_images_to_sample = 1    # 64 - not sure? -- seems to act as 'number of batches'
     # This can be an URL or Colab local path and must be in quotes.
     #genParams.init_image = None
-    genParams.sigma_start = 10   # The starting noise level when using an init image.
-                    # Higher values make the output look more like the init.
-    genParams.init_scale = 1000  # This enhances the effect of the init image, a good value is 1000.
+    genParams.sigma_start = 3   # The starting noise level when using an init image.
+                    # Higher values make the output look more like the init. ( worng, lower values do )
+
 
     genParams.conditioning_scale = 7.0 #7.0 seems pretty good in general for RDM, 7.0 to 10.0 pretty good for SD
     genParams.sampleMethod = "LMS" #LMS"#"HEUN" #"LMS" #LMS or HEUN
 
     genParams.noiseSchedule = "MODEL"#"KARRAS" #"MODEL"
-    genParams.sigma_min = -1.0 #1.4
-    genParams.sigma_max = -1 #20 #-1.0 #20.0
+    genParams.sigma_min = 0.0001 #1.4 for rdm, -1 = default, doesnt change MODEL sched
+    genParams.sigma_max = 10 #20.0 for rdm, -1 = default, doesnt change MODEL sched
 
-    genParams.saveEvery = 999999#5
-    
-    genParams.clip_guidance_scale = 10000#1000  # 1000 - Controls how much the image should look like the prompt.
-
-    genParams.overall_clip_scale = 1.0 #tune down the total value of clip losses...
-
-    genParams.aesthetics_scale = 0
-
-    genParams.cutoutMethod = "RANDOM" 
-
-
-    kdiffer = kdiffWrap.KDiffWrap() #default device is cuda:0, but you can pass 'cpu' to run on CPU
-
+    genParams.saveEvery = 999999#5    
 
     genParams.image_size_x = 512
     genParams.image_size_y = 512
+
+
+    ##########CLIP RELATED######################
+    genParams.cutoutMethod = "RANDOM" 
+    genParams.tv_scale = 100              # 100 - Controls the smoothness of the final output.
+    genParams.range_scale = 50            # 50 - Controls how far out of range RGB values are allowed to be.
+    genParams.cutn = 32                  # 16 - The number of random crops per step.
+                                # Good values are 16 for 256x256 and 64-128 for 512x512.
+    genParams.cut_pow = 0.5               # 0.5 - 
+    genParams.init_scale = 1000  # This enhances the effect of the init image, a good value is 1000.
+    genParams.clip_guidance_scale = 10000#1000  # 1000 - Controls how much the image should look like the prompt.
+    genParams.overall_clip_scale = 1.0 #tune down the total value of clip losses...
+    genParams.aesthetics_scale = 0
+
+
+
+
+
+    kdiffer = kdiffWrap.KDiffWrap() #default device is cuda:0, but you can pass 'cpu' to run on CPU
 
     #dont need to load an extra clip model with sd-v1-4, comment it out for SD
     clipwrap = None#kdiffer.CreateClipModel("vit-l-14") 

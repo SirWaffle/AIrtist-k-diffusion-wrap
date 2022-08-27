@@ -170,8 +170,10 @@ class CompVisSDModel(modelWrap.ModelWrap):
             self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
             if str(device) == 'cpu':
                 self.model.eval().to(torch.float32).to(device)
+                self.tensordtype = torch.float32
             else:
                 self.model.eval().half().to(device)
+                self.tensordtype = torch.float16
 
             self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
             self.default_imageTensorSize = self.default_image_size_x//16  
@@ -255,7 +257,7 @@ class CompVisSDModel(modelWrap.ModelWrap):
 
 
     def EncodeInitImage(self, initTensor):
-        init = self.model.encode_first_stage(initTensor)
+        init = self.model.encode_first_stage(initTensor.to(self.tensordtype))
         init = self.model.get_first_stage_encoding(init)
         return init
 

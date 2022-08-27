@@ -1,6 +1,7 @@
 import gc
 import io
 import sys
+import torch
 
 sys.path.append('./src')
 sys.path.append('./k-diffusion')
@@ -61,7 +62,7 @@ def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
     if len(genParams.init_image) < 3:
         genParams.init_image = None
 
-    genParams.sigma_start = 10   # The starting noise level when using an init image.
+    genParams.sigma_start = kdiffReq.sigma_start   # The starting noise level when using an init image.
                     # Higher values make the output look more like the init.
     genParams.init_scale = 1000  # This enhances the effect of the init image, a good value is 1000.
 
@@ -83,7 +84,7 @@ def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
 
     #clipwrap, modelwrap = kdiffer.CreateModels(kdiffReq.model, kdiffReq.clipModel)
     #clipwrap, modelwrap = CreateModelsWithCaching(kdiffer, kdiffReq.model, kdiffReq.clipModel)
-    gridPilImage, individualPilImages = kdiffer.internal_run(genParams, clipwrap, modelwrap)
+    gridPilImage, individualPilImages, seeds = kdiffer.internal_run(genParams, clipwrap, modelwrap)
 
     #gridPilImage, individualPilImages = internal_run.internal_run(genParams, kdiffReq.model, kdiffReq.clipModel)
 
@@ -94,6 +95,14 @@ def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
     c_sharp_bytes = Array[Byte](op)
     print(type(c_sharp_bytes))
 
+    del gridPilImage
+    del individualPilImages
+    del conv
+    del op
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
     return c_sharp_bytes
 
 
@@ -102,7 +111,9 @@ def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
 #########
 
 def Generate(kdiffReq, kdiffer, clipwrap, modelwrap): 
+    torch.cuda.empty_cache()
     gc.collect()
     ret = DoGenerate(kdiffReq, kdiffer, clipwrap, modelwrap)
     gc.collect()
+    torch.cuda.empty_cache()
     return ret
