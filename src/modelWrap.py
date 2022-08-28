@@ -50,6 +50,8 @@ class ModelWrap:
 
         self.modelName:str = None
 
+        self.ONNX = False
+
     def RequestImageSize(self, inst:ModelContext, x, y):
         self.image_size_x = x
         self.image_size_y = y

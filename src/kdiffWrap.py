@@ -32,34 +32,41 @@ import modelWrap
 import CompVisRDMModel
 import OpenAIUncondModel
 import CompVisSDModel
+import CompVisSDOnnxModel
+import sampling
 
-#from ldm.modules.encoders.modules import FrozenCLIPTextEmbedder
 
-#hard coded badness...
+#hard coded badness for quick export ONNX from pytorch model...
 CONVERT_TO_ONNX = False
 
 def ConvertToONNX(modelCtx:modelWrap.ModelContext, dummy_input):
-    #hmm, doenst work yet, need to figure out hwo to use 'c' in here
-    #maybe add another node in fromt of this all that takes the input
-    #+a tensor of the encoded prompt, then something? i dunno
-    # Export the model   
-    sigmaTensor = torch.FloatTensor([0.1]).cuda()
-    #condTensor = torch.FloatTensor([0.0]).cuda()
-    #uncondTensor = torch.full((0,77), 0.1).cuda() #torch.FloatTensor([12.0]).cuda()
-    condTensor = modelCtx.modelWrap.model.get_learned_conditioning(['']).cuda()
-    uncondTensor = modelCtx.modelWrap.model.get_learned_conditioning(['sampel stupid prompt hellooo']).cuda()
-    condscaleTensor = torch.FloatTensor([0.1]).cuda()
 
-    torch.onnx.export(modelCtx.kdiffModelWrap,         # model being run 
-         (dummy_input, sigmaTensor, condTensor, uncondTensor, condscaleTensor),       # model input (or a tuple for multiple inputs)         
-         "E:/onnxOut/" + modelCtx.modelWrap.modelName + ".onnx",       # where to save the model  
-         export_params=True,  # store the trained parameter weights inside the model file 
-         opset_version=16,    # the ONNX version to export the model to 
-         do_constant_folding=True,  # whether to execute constant folding for optimization 
-         input_names = ['modelInput', 'sigma', 'uncond', 'cond', 'cond_scale'],   # the model's input names 
-         output_names = ['modelOutput'], # the model's output names 
-         dynamic_axes={'modelInput' : {0 : 'batch_size'},    # variable length axes 
-                                'modelOutput' : {0 : 'batch_size'}})
+    # this works great as is: but, lets try getting fp16 or quantized to int8...
+
+    sigmaTensor = torch.FloatTensor([0.1]).cuda().half()
+    condTensor = modelCtx.modelWrap.model.get_learned_conditioning(['']).cuda().half()
+    uncondTensor = modelCtx.modelWrap.model.get_learned_conditioning(['sampel stupid prompt hellooo']).cuda().half()
+    condscaleTensor = torch.FloatTensor([0.1]).cuda().half()
+
+    dummy_input = dummy_input.half()
+
+    #precision_scope = autocast
+    with torch.no_grad():
+        #with precision_scope('cuda'):
+
+        torch.onnx.export(modelCtx.kdiffModelWrap,         # model being run 
+            (dummy_input, sigmaTensor, condTensor, uncondTensor, condscaleTensor),       # model input (or a tuple for multiple inputs)         
+            "E:/onnxOut/" + modelCtx.modelWrap.modelName + ".onnx",       # where to save the model  
+            export_params=True,  # store the trained parameter weights inside the model file 
+            opset_version=16,    # the ONNX version to export the model to 
+            do_constant_folding=True,  # whether to execute constant folding for optimization 
+            input_names = ['modelInput', 'sigma', 'uncond', 'cond', 'cond_scale'],   # the model's input names 
+            output_names = ['modelOutput'], # the model's output names 
+            dynamic_axes={'modelInput' : {0 : 'batch_size'},
+                            'uncond' : {0 : 'batch_size'},
+                            'cond' : {0 : 'batch_size'},
+                            'sigma' : {0 : 'batch_size'},
+                        'modelOutput' : {0 : 'batch_size'}})
 
     print(" ") 
     print('Model has been converted to ONNX') 
@@ -104,10 +111,17 @@ class KDiffWrap:
             modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-1.ckpt"             
         elif modelName.lower() == "rdm":
             modelwrapper = CompVisRDMModel.CompVisRDMModel()
-            modelwrapper.modelName = "rdm"
         elif modelName.lower() == "oai-uncond":
             modelwrapper = OpenAIUncondModel.OpenAIUncondModel()
-            modelwrapper.modelName = "oai-uncond"
+        elif modelName.lower() == "sd-v1-4-onnx-fp32":
+            modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel()
+            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp32-fastest.onnx"    
+        elif modelName.lower() == "sd-v1-4-onnx-fp16":
+            modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel()
+            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp16-slower.onnx"    
+        elif modelName.lower() == "onnx-test":
+            modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel()
+            modelwrapper.model_path = "E:/onnxOut/sd-v1-4.onnx"                          
         else:
             raise exception("invalid model")
             
@@ -321,13 +335,13 @@ class KDiffWrap:
 
 
 
-        def callback(info):
+        def callback(info, imgData = None):
             i = info['i'] 
             if info['i'] % 25 == 0:
                 tqdm.write(f'Step {info["i"]} of {len(modelCtx.sigmas) - 1}, sigma {info["sigma"]:g}:')
 
             if info['i'] != 0 and info['i'] % genParams.saveEvery == 0:
-                denoised = modelCtx.kdiffModelWrap.orig_denoised
+                denoised = mw.DecodeImage(imgData)
                 nrow = math.ceil(denoised.shape[0] ** 0.5)
                 grid = utils.make_grid(denoised, nrow, padding=0)
                 filename = f'step_{i}.png'
@@ -360,8 +374,18 @@ class KDiffWrap:
                 ConvertToONNX(modelCtx, x)
                 exit()
 
+            #hacky ONNX test
+            if hasattr(mw, 'ONNX') and mw.ONNX == True:
+                #since we load the original model into CPU memory, and ONNX onto device, sort out where tensor are living...
+                x = x.to(device)
+                modelCtx.sigmas = modelCtx.sigmas.to(device)
+                modelCtx.extra_args["cond"] = modelCtx.extra_args["cond"].to(device)
+                modelCtx.extra_args["uncond"] = modelCtx.extra_args["uncond"].to(device)
 
-            if  sm == "heun":
+                x_0 = sampling.sample_lms_ONNX(mw.ONNXSession, x, modelCtx.sigmas, callback=callback, extra_args=modelCtx.extra_args)
+                #x_0 = sampling.sample_lms_ONNX_with_binding(mw.ONNXSession, x, modelCtx.sigmas, callback=callback, extra_args=modelCtx.extra_args)
+
+            elif  sm == "heun":
                 print("sampling: HUEN")
                 x_0 = K.sampling.sample_heun(modelCtx.kdiffModelWrap, x, modelCtx.sigmas, s_churn=20, callback=callback, extra_args=modelCtx.extra_args)
             elif sm == "lms":

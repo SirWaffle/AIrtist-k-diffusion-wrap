@@ -8,8 +8,8 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            //"program": "run_from_cmdline_debuging.py",
-            "program": "run_from_cmdline_initImg.py",
+            "program": "run_from_cmdline_debuging.py",
+            //"program": "run_from_cmdline_initImg.py",
             "console": "integratedTerminal",
             "justMyCode": false
         }

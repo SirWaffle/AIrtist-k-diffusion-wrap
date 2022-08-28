@@ -30,7 +30,7 @@ def DoGenerate(kdiffReq):
     genParams.CLIPprompts = None #['a digital painting by anton fadeev']#['A mysterious orb by Ernst Fuchs'] #NONE
     
     genParams.prompts = ["photorealistic painting portrait of a beautiful gorgeous majestic young goddess princess figurative liminal complex flat geometric minimalism by oskar schlemmer rembrandt sorolla oil on canvas cosmic levels shimmer pastel color "]
-    genParams.init_image = "https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"
+    genParams.init_image = None #"https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"
     genParams.image_prompts = None #["https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"]
     
     #DPM_2 / DPM_2_A .. works for RDM CFG
@@ -57,7 +57,7 @@ def DoGenerate(kdiffReq):
     genParams.sigma_min = -1.0 #1.4
     genParams.sigma_max = -1 #20 #-1.0 #20.0
 
-    genParams.saveEvery = 999999#5
+    genParams.saveEvery = 99999#5
     
     genParams.clip_guidance_scale = 10000#1000  # 1000 - Controls how much the image should look like the prompt.
 
@@ -76,7 +76,7 @@ def DoGenerate(kdiffReq):
 
     #dont need to load an extra clip model with sd-v1-4, comment it out for SD
     clipwrap = None#kdiffer.CreateClipModel("vit-l-14") 
-    modelwrap = kdiffer.CreateModel("sd-v1-4")
+    modelwrap = kdiffer.CreateModel("sd-v1-4-onnx-fp32")#"sd-v1-4")
 
     #torch.autograd.set_detect_anomaly(True)
 
