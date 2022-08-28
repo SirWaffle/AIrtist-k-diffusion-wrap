@@ -15,8 +15,6 @@ import modelWrap
 
 import k_diffusion as K
 import torch
-from guided_diffusion.script_util import (create_model_and_diffusion,
-                                          model_and_diffusion_defaults)
 
 
 class CondFnClipGuidedObj:

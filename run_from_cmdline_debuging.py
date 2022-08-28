@@ -76,7 +76,7 @@ def DoGenerate(kdiffReq):
 
     #dont need to load an extra clip model with sd-v1-4, comment it out for SD
     clipwrap = None#kdiffer.CreateClipModel("vit-l-14") 
-    modelwrap = kdiffer.CreateModel("sd-v1-4-onnx-fp32")#"sd-v1-4")
+    modelwrap = kdiffer.CreateModel("sd-v1-4")#"sd-v1-4-onnx-fp32"#
 
     #torch.autograd.set_detect_anomaly(True)
 
