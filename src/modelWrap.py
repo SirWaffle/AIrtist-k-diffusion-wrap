@@ -15,6 +15,8 @@ class ModelContext:
         self.modelWrap:ModelWrap = None
         self.kdiffModelWrap = None
 
+        self.modelName = None
+
         self.target_cfg_embeds = None
         self.cfg_weights = None
 
@@ -28,8 +30,6 @@ class ModelContext:
         self.image_size_y = None
         self.image_tensor_size_x = None
         self.image_tensor_size_y = None
-
-        self.tensordtype = None
 
 
 class ModelWrap:
@@ -51,6 +51,8 @@ class ModelWrap:
         self.modelName:str = None
 
         self.ONNX = False
+
+        self.tensordtype = None
 
     def RequestImageSize(self, inst:ModelContext, x, y):
         self.image_size_x = x

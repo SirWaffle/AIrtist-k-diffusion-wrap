@@ -116,7 +116,7 @@ class FrozenCLIPEmbedder(nn.Module):
 
 
 class CompVisSDModel(modelWrap.ModelWrap):
-    def __init__(self):
+    def __init__(self, torchdtype = torch.float16):
         self.model_path = None
         self.config_path = None        
 
@@ -132,6 +132,9 @@ class CompVisSDModel(modelWrap.ModelWrap):
         self.default_guiding = 'CFG'
 
         self.frozenClip:FrozenCLIPEmbedder = None
+
+        #defaults to fp16 on cuda
+        self.tensordtype = torchdtype
 
 
     def ModelLoadSettings(self):
@@ -157,12 +160,15 @@ class CompVisSDModel(modelWrap.ModelWrap):
         self.model = instantiate_from_config(self.model_config.model)
 
         self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
+        
         if str(device) == 'cpu':
             self.model.eval().to(torch.float32).to(device)
             self.tensordtype = torch.float32
         else:
-            self.model.eval().half().to(device)
-            self.tensordtype = torch.float16
+            if self.tensordtype == torch.float32:
+                self.model.eval().to(device)
+            else:
+                self.model.eval().half().to(device)
 
         self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
         self.default_imageTensorSize = self.default_image_size_x//16  

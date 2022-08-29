@@ -43,7 +43,7 @@ def DoGenerate(kdiffReq):
                                 # Good values are 16 for 256x256 and 64-128 for 512x512.
     genParams.cut_pow = 0.5               # 0.5 - 
     genParams.seed = 646941043242600 #None #2226809351
-    genParams.num_images_to_sample = 1    # 64 - not sure? -- seems to act as 'number of batches'
+    genParams.num_images_to_sample = 4    # 64 - not sure? -- seems to act as 'number of batches'
     # This can be an URL or Colab local path and must be in quotes.
     #genParams.init_image = None
     genParams.sigma_start = 10   # The starting noise level when using an init image.
@@ -76,7 +76,7 @@ def DoGenerate(kdiffReq):
 
     #dont need to load an extra clip model with sd-v1-4, comment it out for SD
     clipwrap = None#kdiffer.CreateClipModel("vit-l-14") 
-    modelwrap = kdiffer.CreateModel("sd-v1-4")#"sd-v1-4-onnx-fp32"#
+    modelwrap = kdiffer.CreateModel("sd-v1-4-onnx-fp32")#"sd-v1-4")#
 
     #torch.autograd.set_detect_anomaly(True)
 

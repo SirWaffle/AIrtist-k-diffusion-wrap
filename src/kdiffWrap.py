@@ -20,6 +20,7 @@ from torchvision.utils import make_grid
 from torch import autocast
 from contextlib import contextmanager, nullcontext
 import torch.onnx 
+from torch import nn
 
 #from ldm.util import instantiate_from_config
 import random
@@ -33,43 +34,7 @@ import CompVisRDMModel
 import OpenAIUncondModel
 import CompVisSDModel
 import CompVisSDOnnxModel
-import sampling
-
-
-#hard coded badness for quick export ONNX from pytorch model...
-CONVERT_TO_ONNX = False
-
-def ConvertToONNX(modelCtx:modelWrap.ModelContext, dummy_input):
-
-    # this works great as is: but, lets try getting fp16 or quantized to int8...
-
-    sigmaTensor = torch.FloatTensor([0.1]).cuda().half()
-    condTensor = modelCtx.modelWrap.model.get_learned_conditioning(['']).cuda().half()
-    uncondTensor = modelCtx.modelWrap.model.get_learned_conditioning(['sampel stupid prompt hellooo']).cuda().half()
-    condscaleTensor = torch.FloatTensor([0.1]).cuda().half()
-
-    dummy_input = dummy_input.half()
-
-    #precision_scope = autocast
-    with torch.no_grad():
-        #with precision_scope('cuda'):
-
-        torch.onnx.export(modelCtx.kdiffModelWrap,         # model being run 
-            (dummy_input, sigmaTensor, condTensor, uncondTensor, condscaleTensor),       # model input (or a tuple for multiple inputs)         
-            "E:/onnxOut/" + modelCtx.modelWrap.modelName + ".onnx",       # where to save the model  
-            export_params=True,  # store the trained parameter weights inside the model file 
-            opset_version=16,    # the ONNX version to export the model to 
-            do_constant_folding=True,  # whether to execute constant folding for optimization 
-            input_names = ['modelInput', 'sigma', 'uncond', 'cond', 'cond_scale'],   # the model's input names 
-            output_names = ['modelOutput'], # the model's output names 
-            dynamic_axes={'modelInput' : {0 : 'batch_size'},
-                            'uncond' : {0 : 'batch_size'},
-                            'cond' : {0 : 'batch_size'},
-                            'sigma' : {0 : 'batch_size'},
-                        'modelOutput' : {0 : 'batch_size'}})
-
-    print(" ") 
-    print('Model has been converted to ONNX') 
+import onnxSampling
 
 class KDiffWrap:
     def __init__(self, deviceName:str = 'cuda:0'):
@@ -108,20 +73,27 @@ class KDiffWrap:
             modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-2.ckpt"  
         elif modelName.lower() == "sd-v1-1":
             modelwrapper = CompVisSDModel.CompVisSDModel()
-            modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-1.ckpt"             
+            modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-1.ckpt"   
+
+
         elif modelName.lower() == "rdm":
             modelwrapper = CompVisRDMModel.CompVisRDMModel()
+
+
         elif modelName.lower() == "oai-uncond":
             modelwrapper = OpenAIUncondModel.OpenAIUncondModel()
+
+            
         elif modelName.lower() == "sd-v1-4-onnx-fp32":
-            modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel()
-            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp32-fastest.onnx"    
+            modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel(torchdtype = torch.float32)
+            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp32-auto.onnx"    
         elif modelName.lower() == "sd-v1-4-onnx-fp16":
-            modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel()
-            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp16-slower.onnx"    
+            modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel(torchdtype = torch.float16)
+            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp16-auto.onnx"    
         elif modelName.lower() == "onnx-test":
-            modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel()
-            modelwrapper.model_path = "E:/onnxOut/sd-v1-4.onnx"                          
+            modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel(torchdtype = torch.float16)
+            modelwrapper.model_path = "E:/onnxOut/test-sd-v1-4-fp16-auto.onnx"        
+
         else:
             raise exception("invalid model")
             
@@ -370,10 +342,6 @@ class KDiffWrap:
             if init is not None:
                 x += init
 
-            if CONVERT_TO_ONNX == True:
-                ConvertToONNX(modelCtx, x)
-                exit()
-
             #hacky ONNX test
             if hasattr(mw, 'ONNX') and mw.ONNX == True:
                 #since we load the original model into CPU memory, and ONNX onto device, sort out where tensor are living...
@@ -381,9 +349,17 @@ class KDiffWrap:
                 modelCtx.sigmas = modelCtx.sigmas.to(device)
                 modelCtx.extra_args["cond"] = modelCtx.extra_args["cond"].to(device)
                 modelCtx.extra_args["uncond"] = modelCtx.extra_args["uncond"].to(device)
+                modelCtx.extra_args["cond_scale"] = torch.FloatTensor([modelCtx.extra_args["cond_scale"]]).to(device)
 
-                x_0 = sampling.sample_lms_ONNX(mw.ONNXSession, x, modelCtx.sigmas, callback=callback, extra_args=modelCtx.extra_args)
-                #x_0 = sampling.sample_lms_ONNX_with_binding(mw.ONNXSession, x, modelCtx.sigmas, callback=callback, extra_args=modelCtx.extra_args)
+                if modelCtx.modelWrap.tensordtype == torch.float16:
+                    x = x.half()
+                    modelCtx.sigmas = modelCtx.sigmas.half()
+                    modelCtx.extra_args["cond"] = modelCtx.extra_args["cond"].half()
+                    modelCtx.extra_args["uncond"] = modelCtx.extra_args["uncond"].half()
+                    modelCtx.extra_args["cond_scale"] = modelCtx.extra_args["cond_scale"].half()
+
+                x_0 = onnxSampling.sample_lms_ONNX(mw.ONNXSession, x, modelCtx.sigmas, callback=callback, extra_args=modelCtx.extra_args)
+                #x_0 = sampling.sample_lms_ONNX_with_binding(mw.ONNXSession, x, modelCtx.sigmas, bindingType = modelCtx.modelWrap.tensordtype, callback=callback, extra_args=modelCtx.extra_args)
 
             elif  sm == "heun":
                 print("sampling: HUEN")

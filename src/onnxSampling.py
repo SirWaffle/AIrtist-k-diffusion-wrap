@@ -23,7 +23,7 @@ def sample_lms_ONNX(model:onnxruntime.InferenceSession, x, sigmas, extra_args=No
                    'sigma': np.array(q), 
                    'uncond': extra_args["uncond"].cpu().detach().numpy(),
                    'cond': extra_args["cond"].cpu().detach().numpy(), 
-                   'cond_scale': np.array([extra_args["cond_scale"]],dtype='float32')})
+                   'cond_scale': extra_args["cond_scale"].cpu().detach().numpy()})
                    
         denoised = torch.from_numpy(np.array(denoised)).cuda().squeeze(0)#.unsqueeze(0)
         #denoised = torch.from_numpy(np.array(denoised)).cpu().squeeze(0)#.unsqueeze(0)
@@ -40,19 +40,9 @@ def sample_lms_ONNX(model:onnxruntime.InferenceSession, x, sigmas, extra_args=No
 
 
 @torch.no_grad()
-def sample_lms_ONNX_with_binding(model:onnxruntime.InferenceSession, x, sigmas, extra_args=None, callback=None, disable=None, order=4):
-    
-    #need to smash thing sdown to FP16 to test fp16 mode
-    #fp16 is slower than fp32 model?!
-    bindingType = np.float32 #16
-
-    #x = x.half()
-    #sigmas = sigmas.half()
-    #extra_args["cond"] = extra_args["cond"].half()
-    #extra_args["uncond"] = extra_args["uncond"].half()
+def sample_lms_ONNX_with_binding(model:onnxruntime.InferenceSession, x, sigmas, bindingType = torch.float32, extra_args=None, callback=None, disable=None, order=4):
 
     condscaleTens = torch.FloatTensor([extra_args["cond_scale"]]).cuda()
-    #condscaleTens = condscaleTens.half()
 
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
