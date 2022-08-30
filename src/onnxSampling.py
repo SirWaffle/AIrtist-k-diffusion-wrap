@@ -16,7 +16,7 @@ def sample_lms_ONNX(model:onnxruntime.InferenceSession, x, sigmas, extra_args=No
     ds = []
 
     for i in trange(len(sigmas) - 1, disable=disable):
-        #q = sigmas.cpu().detach()[i]
+
         q = np.array((sigmas[i] * s_in).cpu().detach())
         denoised = model.run(None,         
                    {'modelInput': x.cpu().detach().numpy(), 
@@ -25,8 +25,8 @@ def sample_lms_ONNX(model:onnxruntime.InferenceSession, x, sigmas, extra_args=No
                    'cond': extra_args["cond"].cpu().detach().numpy(), 
                    'cond_scale': extra_args["cond_scale"].cpu().detach().numpy()})
                    
-        denoised = torch.from_numpy(np.array(denoised)).cuda().squeeze(0)#.unsqueeze(0)
-        #denoised = torch.from_numpy(np.array(denoised)).cpu().squeeze(0)#.unsqueeze(0)
+        denoised = torch.from_numpy(np.array(denoised)).cuda().squeeze(0)
+
         d = K.sampling.to_d(x, sigmas[i], denoised)
         ds.append(d)
         if len(ds) > order:
@@ -42,7 +42,10 @@ def sample_lms_ONNX(model:onnxruntime.InferenceSession, x, sigmas, extra_args=No
 @torch.no_grad()
 def sample_lms_ONNX_with_binding(model:onnxruntime.InferenceSession, x, sigmas, bindingType = torch.float32, extra_args=None, callback=None, disable=None, order=4):
 
-    #condscaleTens = torch.FloatTensor([extra_args["cond_scale"]]).cuda()
+    if bindingType == torch.float32:
+        bindingType = np.float32
+    elif bindingType == torch.float16:
+        bindingType = np.float16
 
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
