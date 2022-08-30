@@ -45,13 +45,13 @@ def Main():
     torchDevice = torch.device('cuda:0') #'cpu'
     
     dtype = torch.float32
-    autocast = False
+    autocast = True
 
     print('Using device:', torchDevice, flush=True)
 
     modelwrapper:modelWrap.ModelContext = CompVisSDModel.CompVisSDModel(dtype)
     modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-4.ckpt" 
-    modelwrapper.modelName = "sd-v1-4-fp32-cuda" 
+    modelwrapper.modelName = "sd-v1-4-fp32-cuda-auto" 
     modelwrapper.ModelLoadSettings()
     modelwrapper.LoadModel(torchDevice)
 
@@ -83,9 +83,14 @@ def ConvertToONNXCuda(modelWrapper:modelWrap.ModelWrap, outFilePath:str, dtype, 
     #modelCtx.extra_args = {'cond': c, 'uncond': uc, 'cond_scale': condScale}
     modelCtx.kdiffModelWrap = denoisers.CFGDenoiser(modelWrapper.kdiffExternalModelWrap)
         
+    if str(device) == 'cpu':    
+        prec_dev = 'cpu'
+    else:
+        prec_dev = 'cuda'
+
     precision_scope = autocast if autocast_enable else nullcontext       
     with torch.no_grad():
-        with precision_scope(str(device)):
+        with precision_scope(prec_dev):
             torch.onnx.export(modelCtx.kdiffModelWrap,         # model being run 
                 (image_input, sigmaTensor, condTensor, uncondTensor, condscaleTensor),       # model input (or a tuple for multiple inputs)         
                 outFilePath,       # where to save the model  
@@ -141,9 +146,13 @@ def ConvertDecodeToONNXCuda(modelWrapper:modelWrap.ModelWrap, outFilePath:str, d
 
     dw = decodeWrap(modelWrapper.model)
 
+    if str(device) == 'cpu':    
+        prec_dev = 'cpu'
+    else:
+        prec_dev = 'cuda'
     precision_scope = autocast if autocast_enable else nullcontext         
     with torch.no_grad():
-        with precision_scope(str(device)):
+        with precision_scope(prec_dev):
             torch.onnx.export(dw,         # model being run 
                 (input_tensor),       # model input (or a tuple for multiple inputs)         
                 outFilePath,       # where to save the model  

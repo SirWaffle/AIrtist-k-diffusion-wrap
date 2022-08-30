@@ -42,7 +42,7 @@ def sample_lms_ONNX(model:onnxruntime.InferenceSession, x, sigmas, extra_args=No
 @torch.no_grad()
 def sample_lms_ONNX_with_binding(model:onnxruntime.InferenceSession, x, sigmas, bindingType = torch.float32, extra_args=None, callback=None, disable=None, order=4):
 
-    condscaleTens = torch.FloatTensor([extra_args["cond_scale"]]).cuda()
+    #condscaleTens = torch.FloatTensor([extra_args["cond_scale"]]).cuda()
 
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
@@ -58,7 +58,7 @@ def sample_lms_ONNX_with_binding(model:onnxruntime.InferenceSession, x, sigmas, 
     binding.bind_output(name='modelOutput', device_type='cuda', device_id=0, element_type=bindingType, shape=tuple(denoised.shape), buffer_ptr=denoised.data_ptr())    
     binding.bind_input(name='uncond', device_type='cuda',device_id=0, element_type=bindingType, shape=tuple(extra_args["uncond"].shape), buffer_ptr=extra_args["uncond"].data_ptr())
     binding.bind_input(name='cond', device_type='cuda',device_id=0, element_type=bindingType, shape=tuple(extra_args["cond"].shape), buffer_ptr=extra_args["cond"].data_ptr())
-    binding.bind_input(name='cond_scale', device_type='cuda',device_id=0, element_type=bindingType, shape=tuple(condscaleTens.shape),buffer_ptr=condscaleTens.data_ptr())
+    binding.bind_input(name='cond_scale', device_type='cuda',device_id=0, element_type=bindingType, shape=tuple(extra_args["cond_scale"].shape),buffer_ptr=extra_args["cond_scale"].data_ptr())
 
     for i in trange(len(sigmas) - 1, disable=disable):
         q = (sigmas[i] * s_in).cuda() 
