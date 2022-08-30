@@ -17,6 +17,8 @@ from transformers import CLIPTokenizer, CLIPTextModel
 import torch.nn as nn
 from onnxruntime.quantization import quantize_dynamic, QuantType, quantize, QuantizationMode
 
+import numpy as np
+
 import denoisers
 import paramsGen
 import lossFunctions
@@ -34,6 +36,11 @@ class CompVisSDOnnxModel(CompVisSDModel.CompVisSDModel):
 
         self.DecoderONNXSession:onnxruntime.InferenceSession = None
         self.tensordtype = torchdtype
+
+        self.decodeWithONNX = False
+        self.decodeWithSDOnCPU = True
+        self.decoderDtype = torch.float32
+
 
     def LoadModel(self, device):
 
@@ -56,28 +63,27 @@ class CompVisSDOnnxModel(CompVisSDModel.CompVisSDModel):
             #providers = [("CUDAExecutionProvider", {"cudnn_conv_use_max_workspace": '1'})]
 
         self.ONNXSession = onnxruntime.InferenceSession(self.model_path, sess_options, providers=providers)#,'CUDAExecutionProvider'])
-        #HACK again, we need to laod the normal model to decode the image..
-        #self.model_path = 'E:/MLModels/stableDiffusion/sd-v1-4.ckpt'
-        
-
 
         #lets try to use the decode ONNX model for decode...
-        if False:
-            self.model_path = 'E:/onnxOut/sd-v1-4-decode.onnx'
+        if self.decodeWithONNX == True:
+            self.model_path = 'E:/onnxOut/sd-v1-4-fp32-cuda-auto-decode/model.onnx'
             self.DecoderONNXSession = onnxruntime.InferenceSession(self.model_path, sess_options, providers=providers)
 
 
         #use the old non onnx model for encode decode
         else:
-            #TODO
-            #still loading the old model for the encode/decode methods...need to figure out how to get 
-            #that seperated. put it in the cpu for now
             self.model_path = 'E:/MLModels/stableDiffusion/sd-v1-4.ckpt'
             self.model_config = OmegaConf.load(self.config_path)
             self.model = instantiate_from_config(self.model_config.model)
 
             self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
-            self.model.eval().to(torch.float32)#.to(device)
+
+            if self.decodeWithSDOnCPU == True:
+                self.model.eval().to(torch.float32)
+            else:
+                self.model.eval().to(device).to(self.decoderDtype)
+                
+
 
             self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
 
@@ -124,15 +130,15 @@ class CompVisSDOnnxModel(CompVisSDModel.CompVisSDModel):
 
 
     def DecodeImage(self, imageTensor):
-        #lets try onnx decoder..
-        #hrm, not quite right..
-        if False:
-            denoised = self.DecoderONNXSession.run(None,         
-                {'modelInput': imageTensor.cpu().detach().numpy()} )
 
-            return torch.FloatTensor(denoised).squeeze(0)
+        if self.DecoderONNXSession != None:
+            denoised = self.DecoderONNXSession.run(None,         
+                {'modelInput': imageTensor.cpu().to(self.decoderDtype).numpy()} )
+
+            return torch.from_numpy(np.array(denoised)).to(torch.float32).squeeze(0)
         else:
-            #we currently keep the original model in RAM for decode/encode
-            #convert from device back to float32 cpu 
-            imageTensor = imageTensor.cpu().to(torch.float32)
+            if self.decodeWithSDOnCPU == True:
+                imageTensor = imageTensor.cpu().to(self.decoderDtype)
+            else:
+                imageTensor = imageTensor.cuda().to(self.decoderDtype)
             return self.model.decode_first_stage(imageTensor)

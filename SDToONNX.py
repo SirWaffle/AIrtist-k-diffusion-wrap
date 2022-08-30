@@ -1,4 +1,5 @@
 import sys
+import gc
 
 sys.path.append('./stable-diffusion')
 sys.path.append('./k-diffusion')
@@ -11,7 +12,8 @@ from torch import nn
 from torch import autocast
 from onnxruntime.quantization import quantize_dynamic, QuantType, quantize, QuantizationMode
 from contextlib import nullcontext
-
+import onnx
+import onnxruntime
 import modelWrap
 import CompVisSDModel
 import denoisers
@@ -41,31 +43,54 @@ import denoisers
 def Main():
 
     #fastest on GPU appears to be autocast = true, dtype = float32
-    
-    torchDevice = torch.device('cuda:0') #'cpu'
-    
-    dtype = torch.float32
-    autocast = True
+    #decoder for FP16 no autocast fails to load as a session for some reason...
 
-    print('Using device:', torchDevice, flush=True)
+    torchDevice = torch.device('cuda:0') #'cpu'
+
+    modelPrefix = "sd-v1-4"
+    model_path = "E:/MLModels/stableDiffusion/sd-v1-4.ckpt" 
+
+    CreateONNXModels(model_path, torch.float32, True, modelPrefix + "-fp32-cuda-auto", torchDevice)
+    CreateONNXModels(model_path, torch.float32, False, modelPrefix + "-fp32-cuda", torchDevice)
+    CreateONNXModels(model_path, torch.float16, True, modelPrefix + "-fp16-cuda-auto", torchDevice)
+    #cant process this one
+    #CreateONNXModels(model_path, torch.float16, False, modelPrefix + "-fp16-cuda", torchDevice)
+
+
+
+def CreateONNXModels(model_path, dtype, autocast, modelName, device):
 
     modelwrapper:modelWrap.ModelContext = CompVisSDModel.CompVisSDModel(dtype)
-    modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-4.ckpt" 
-    modelwrapper.modelName = "sd-v1-4-fp32-cuda-auto" 
+    modelwrapper.model_path = model_path
+    modelwrapper.modelName = modelName
     modelwrapper.ModelLoadSettings()
-    modelwrapper.LoadModel(torchDevice)
+    modelwrapper.LoadModel(device)
 
+    outFile = "E:/onnxOut/" + modelwrapper.modelName + "/model.onnx"
+    ConvertToONNXCuda(modelwrapper, outFile, dtype, autocast, device)
     
+    outFile = "E:/onnxOut/" + modelwrapper.modelName + "-decode/model.onnx"
+    ConvertDecodeToONNXCuda(modelwrapper, outFile, dtype, autocast, device)
 
-    outFile = "E:/onnxOut/test-" + modelwrapper.modelName + ".onnx"
-    ConvertToONNXCuda(modelwrapper, outFile, dtype, autocast, torchDevice)
-
-    #decode  as ONNX sorta kinda works
-    outFile = "E:/onnxOut/test-" + modelwrapper.modelName + "-decode.onnx"
-    ConvertDecodeToONNXCuda(modelwrapper, outFile, dtype, autocast, torchDevice)
+    modelwrapper.model = None    
+    modelwrapper = None
+    gc.collect()
+    torch.cuda.empty_cache()
 
 
 
+def CheckONNX(modelPath:str):
+    onnx_model = onnx.load(modelPath)
+
+    print('The model is:\n{}'.format(onnx_model))
+
+    # Check the model
+    try:
+        onnx.checker.check_model(onnx_model)
+    except onnx.checker.ValidationError as e:
+        print('The model is invalid: %s' % e)
+    else:
+        print('The model is valid!')
 
 
 def ConvertToONNXCuda(modelWrapper:modelWrap.ModelWrap, outFilePath:str, dtype, autocast_enable:bool, device):
@@ -108,6 +133,7 @@ def ConvertToONNXCuda(modelWrapper:modelWrap.ModelWrap, outFilePath:str, dtype, 
     print(" ") 
     print('Model has been converted to ONNX') 
 
+    #CheckONNX(outFilePath)
 
 
 
@@ -142,7 +168,9 @@ class decodeWrap(nn.Module):
 
 
 def ConvertDecodeToONNXCuda(modelWrapper:modelWrap.ModelWrap, outFilePath:str, dtype, autocast_enable:bool, device):
-    input_tensor = torch.rand((1, 4, 64, 64)).to(device).to(dtype) #1 512x512 image
+    #input_tensor = torch.rand((1, 4, 64, 64)).to(device).to(dtype) #1 512x512 image
+
+    input_tensor = torch.randn([1, 4, 64, 64], device=device).to(dtype) + 0.01 * 10
 
     dw = decodeWrap(modelWrapper.model)
 
@@ -166,6 +194,9 @@ def ConvertDecodeToONNXCuda(modelWrapper:modelWrap.ModelWrap, outFilePath:str, d
 
     print(" ") 
     print('Decode has been converted to ONNX') 
+
+    #CheckONNX(outFilePath)
+
     return
 
 

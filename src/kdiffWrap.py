@@ -86,10 +86,10 @@ class KDiffWrap:
             
         elif modelName.lower() == "sd-v1-4-onnx-fp32":
             modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel(torchdtype = torch.float32)
-            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp32-auto.onnx"    
+            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp32-cuda-auto/model.onnx"    
         elif modelName.lower() == "sd-v1-4-onnx-fp16":
             modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel(torchdtype = torch.float16)
-            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp16-auto.onnx"    
+            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp16-cuda-auto.onnx"    
         elif modelName.lower() == "onnx-test":
             modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel(torchdtype = torch.float16)
             modelwrapper.model_path = "E:/onnxOut/test-sd-v1-4-fp16-auto.onnx"        
@@ -359,7 +359,7 @@ class KDiffWrap:
                     modelCtx.extra_args["cond_scale"] = modelCtx.extra_args["cond_scale"].half()
 
                 x_0 = onnxSampling.sample_lms_ONNX(mw.ONNXSession, x, modelCtx.sigmas, callback=callback, extra_args=modelCtx.extra_args)
-                #x_0 = sampling.sample_lms_ONNX_with_binding(mw.ONNXSession, x, modelCtx.sigmas, bindingType = modelCtx.modelWrap.tensordtype, callback=callback, extra_args=modelCtx.extra_args)
+                #x_0 = onnxSampling.sample_lms_ONNX_with_binding(mw.ONNXSession, x, modelCtx.sigmas, bindingType = modelCtx.modelWrap.tensordtype, callback=callback, extra_args=modelCtx.extra_args)
 
             elif  sm == "heun":
                 print("sampling: HUEN")
@@ -406,6 +406,9 @@ class KDiffWrap:
         ################
         with precision_scope(precision_device):
             samples = mw.DecodeImage(samples)
+            #seemed fine without this next part...not sure if its needed?
+            #makes it look washed out
+            #samples = torch.clamp((samples + 1.0) / 2.0, min=0.0, max=1.0)
 
         #TODO: combine all the samples into a grid somehow
         imgsList = []

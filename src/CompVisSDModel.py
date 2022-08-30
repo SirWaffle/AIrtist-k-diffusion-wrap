@@ -165,10 +165,7 @@ class CompVisSDModel(modelWrap.ModelWrap):
             self.model.eval().to(torch.float32).to(device)
             self.tensordtype = torch.float32
         else:
-            if self.tensordtype == torch.float32:
-                self.model.eval().to(device)
-            else:
-                self.model.eval().half().to(device)
+            self.model.eval().to(device).to(self.tensordtype)
 
         self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
         self.default_imageTensorSize = self.default_image_size_x//16  
