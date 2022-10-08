@@ -1,5 +1,6 @@
 import sys
 import gc
+import os
 
 sys.path.append('./stable-diffusion')
 sys.path.append('./k-diffusion')
@@ -38,10 +39,6 @@ import denoisers
 #        return func(*inputs)
 #
 
-# decode works properly
-# the actual gen, does not work quite right. something about the wrappers
-# possibly the sigmas that get set from the model when the wrappers are made?
-
 
 # main executing function
 def Main():
@@ -54,13 +51,16 @@ def Main():
     modelPrefix = "sd-v1-4"
     model_path = "E:/MLModels/stableDiffusion/sd-v1-4.ckpt" 
 
-    CreateONNXModels(model_path, torch.float32, True, modelPrefix + "-fp32-cuda-auto", torchDevice)
-    #CreateONNXModels(model_path, torch.float32, False, modelPrefix + "-fp32-cuda", torchDevice)
-    #CreateONNXModels(model_path, torch.float16, True, modelPrefix + "-fp16-cuda-auto", torchDevice)
+    #CreateONNXModels(model_path, torch.float32, True, modelPrefix + "-fp32-cuda-auto-jit", torchDevice)
+    CreateONNXModels(model_path, torch.float32, False, modelPrefix + "-fp32-cuda-jit", torchDevice)
+    #CreateONNXModels(model_path, torch.float16, True, modelPrefix + "-fp16-cuda-auto-jit", torchDevice)
     #cant process this one
-    #CreateONNXModels(model_path, torch.float16, False, modelPrefix + "-fp16-cuda", torchDevice)
+    #CreateONNXModels(model_path, torch.float16, False, modelPrefix + "-fp16-cuda-jit", torchDevice)
 
-
+def MakeDir(path:str):
+    isExist = os.path.exists(path)
+    if not isExist:
+        os.makedirs(path)
 
 def CreateONNXModels(model_path, dtype, autocast, modelName, device):
 
@@ -71,9 +71,11 @@ def CreateONNXModels(model_path, dtype, autocast, modelName, device):
     modelwrapper.LoadModel(device)
 
     outFile = "E:/onnxOut/" + modelwrapper.modelName + "/model.onnx"
+    MakeDir("E:/onnxOut/" + modelwrapper.modelName)
     ConvertToONNXCuda(modelwrapper, outFile, dtype, autocast, device)
     
     outFile = "E:/onnxOut/" + modelwrapper.modelName + "-decode/model.onnx"
+    MakeDir("E:/onnxOut/" + modelwrapper.modelName + "-decode")
     ConvertDecodeToONNXCuda(modelwrapper, outFile, dtype, autocast, device)
 
     modelwrapper.model = None    
@@ -117,13 +119,27 @@ def ConvertToONNXCuda(modelWrapper:modelWrap.ModelWrap, outFilePath:str, dtype, 
     else:
         prec_dev = 'cuda'
 
+    tsIns = {}
+    tsIns["modelInput"] = image_input
+    tsIns["sigma"] = sigmaTensor
+    tsIns["uncond"] = condTensor
+    tsIns["cond"] = uncondTensor
+    tsIns["cond_scale"] = condscaleTensor
+
+
     precision_scope = autocast if autocast_enable else nullcontext       
     with torch.no_grad():
-        with precision_scope(prec_dev):            
-            torch.onnx.export(modelCtx.kdiffModelWrap,         # model being run 
+        with precision_scope(prec_dev):     
+
+            traced_model = torch.jit.trace(modelCtx.kdiffModelWrap, 
+             (image_input, sigmaTensor, condTensor, uncondTensor, condscaleTensor), 
+             strict=True,
+             check_trace=False) #this is off by more than 1e-5...
+
+            torch.onnx.export(traced_model,         # model being run 
                 (image_input, sigmaTensor, condTensor, uncondTensor, condscaleTensor),       # model input (or a tuple for multiple inputs)         
                 outFilePath,       # where to save the model  
-                export_params=True,  # store the trained parameter weights inside the model file 
+                #export_params=True,  # store the trained parameter weights inside the model file 
                 opset_version=16,    # the ONNX version to export the model to 
                 #do_constant_folding=True,  # whether to execute constant folding for optimization 
                 input_names = ['modelInput', 'sigma', 'uncond', 'cond', 'cond_scale'],   # the model's input names 
@@ -135,7 +151,7 @@ def ConvertToONNXCuda(modelWrapper:modelWrap.ModelWrap, outFilePath:str, dtype, 
                             'modelOutput' : {0 : 'batch_size'}})
 
     print(" ") 
-    print('Model has been converted to ONNX') 
+    print('Model has been converted to ONNX ts') 
 
     #CheckONNX(outFilePath)
 
@@ -182,13 +198,21 @@ def ConvertDecodeToONNXCuda(modelWrapper:modelWrap.ModelWrap, outFilePath:str, d
         prec_dev = 'cpu'
     else:
         prec_dev = 'cuda'
+
+    tsIns = {}
+    tsIns["modelInput"] = input_tensor
+
     precision_scope = autocast if autocast_enable else nullcontext         
     with torch.no_grad():
         with precision_scope(prec_dev):
-            torch.onnx.export(dw,         # model being run 
+            traced_model = torch.jit.trace(dw, input_tensor, 
+                strict=True,
+                check_trace=False) #this is off by more than 1e-5...)
+
+            torch.onnx.export(traced_model,         # model being run 
                 (input_tensor),       # model input (or a tuple for multiple inputs)         
                 outFilePath,       # where to save the model  
-                export_params=True,  # store the trained parameter weights inside the model file 
+                #export_params=True,  # store the trained parameter weights inside the model file 
                 opset_version=16,    # the ONNX version to export the model to 
                 #do_constant_folding=True,  # whether to execute constant folding for optimization 
                 input_names = ['modelInput'],   # the model's input names 

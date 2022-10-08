@@ -9,6 +9,42 @@ import onnxruntime
 
 import k_diffusion as K
 
+#hacky for HF Onnx with different named params, just to test
+@torch.no_grad()
+def sample_lms_ONNX_HF(model:onnxruntime.InferenceSession, x, sigmas, extra_args=None, callback=None, disable=None, order=4):
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+    ds = []
+
+    denoised = torch.zeros_like(x)
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+    
+        q = np.array((sigmas[i] * s_in).cpu().to(torch.int64).detach())
+        denoised = model.run(None,         
+                   {'latent_model_input': x.cpu().detach().numpy(), 
+                   't': np.array(q), 
+                   'encoder_hidden_states': extra_args["cond"].cpu().detach().numpy()})
+                   
+        denoised = torch.from_numpy(np.array(denoised)).cuda().squeeze(0)
+
+        # from HFSD run....perform guidance
+        #denoised =  extra_args["cond_scale"] * (-1 * denoised)
+
+        d = K.sampling.to_d(x, sigmas[i], denoised)
+        ds.append(d)
+        if len(ds) > order:
+            ds.pop(0)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised}, denoised)
+        cur_order = min(i + 1, order)
+        coeffs = [K.sampling.linear_multistep_coeff(cur_order, sigmas.cpu(), i, j) for j in range(cur_order)]
+        x = x + sum(coeff * d for coeff, d in zip(coeffs, reversed(ds)))
+    return x
+
+
+
+
 @torch.no_grad()
 def sample_lms_ONNX(model:onnxruntime.InferenceSession, x, sigmas, extra_args=None, callback=None, disable=None, order=4):
     extra_args = {} if extra_args is None else extra_args

@@ -29,7 +29,8 @@ def DoGenerate(kdiffReq):
     genParams.CFGprompts = None #['a cat']
     genParams.CLIPprompts = None #['a digital painting by anton fadeev']#['A mysterious orb by Ernst Fuchs'] #NONE
     
-    genParams.prompts = ["photorealistic painting portrait of a beautiful gorgeous majestic young goddess princess figurative liminal complex flat geometric minimalism by oskar schlemmer rembrandt sorolla oil on canvas cosmic levels shimmer pastel color "]
+    genParams.prompts = ["a yard with trees"] #["beautiful ice dragon sitting on an iceberg, large scaley blue dragon with wings, resting on an iceberg, digital art by peter mohrbacher, peter elson, jesper ejsing"]#["photorealistic painting portrait of a beautiful gorgeous majestic young goddess princess figurative liminal complex flat geometric minimalism by oskar schlemmer rembrandt sorolla oil on canvas cosmic levels shimmer pastel color "]
+    genParams.CFGNegPrompts = ["green, grass"]
     genParams.init_image = None #"https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"
     genParams.image_prompts = None #["https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"]
     
@@ -42,8 +43,8 @@ def DoGenerate(kdiffReq):
     genParams.cutn = 32                  # 16 - The number of random crops per step.
                                 # Good values are 16 for 256x256 and 64-128 for 512x512.
     genParams.cut_pow = 0.5               # 0.5 - 
-    genParams.seed = 646941043242600 #None #2226809351
-    genParams.num_images_to_sample = 4    # 64 - not sure? -- seems to act as 'number of batches'
+    genParams.seed = 22217377481300#646941043242600 #None #2226809351
+    genParams.num_images_to_sample = 1    # 64 - not sure? -- seems to act as 'number of batches'
     # This can be an URL or Colab local path and must be in quotes.
     #genParams.init_image = None
     genParams.sigma_start = 10   # The starting noise level when using an init image.
@@ -57,7 +58,7 @@ def DoGenerate(kdiffReq):
     genParams.sigma_min = -1.0 #1.4
     genParams.sigma_max = -1 #20 #-1.0 #20.0
 
-    genParams.saveEvery = 99999#5
+    genParams.saveEvery = 9999#5
     
     genParams.clip_guidance_scale = 10000#1000  # 1000 - Controls how much the image should look like the prompt.
 
@@ -71,12 +72,12 @@ def DoGenerate(kdiffReq):
     kdiffer = kdiffWrap.KDiffWrap() #default device is cuda:0, but you can pass 'cpu' to run on CPU
 
 
-    genParams.image_size_x = 512
-    genParams.image_size_y = 512
+    genParams.image_size_x = 832#640 #512
+    genParams.image_size_y = 512 #512
 
     #dont need to load an extra clip model with sd-v1-4, comment it out for SD
     clipwrap = None#kdiffer.CreateClipModel("vit-l-14") 
-    modelwrap = kdiffer.CreateModel("sd-v1-4-onnx-fp32")#"sd-v1-4")#
+    modelwrap = kdiffer.CreateModel("waifu")#"sd-v1-4")#
 
     #torch.autograd.set_detect_anomaly(True)
 

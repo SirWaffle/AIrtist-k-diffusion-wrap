@@ -29,7 +29,7 @@ def CreateKDiffer() -> kdiffWrap.KDiffWrap:
     return kdiffer
 
 
-def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
+def DoGenerate(kdiffReq, resp, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
 
     ## Generation Settings
     print(str(kdiffReq))
@@ -39,6 +39,8 @@ def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
     genParams.prompts = kdiffReq.prompt.split('|')
     genParams.CFGprompts = kdiffReq.cfgprompt.split('|')
     genParams.CLIPprompts = kdiffReq.clipprompt.split('|')
+
+    genParams.CFGNegPrompts = kdiffReq.cfgNegPrompt.split('|')
     
     genParams.image_prompts = kdiffReq.image_prompts
     if genParams.image_prompts != None and len(genParams.image_prompts) < 3:
@@ -52,8 +54,6 @@ def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
                                 # Good values are 16 for 256x256 and 64-128 for 512x512.
     genParams.cut_pow = kdiffReq.cut_pow               # 0.5 - 
     genParams.seed = kdiffReq.seed
-    if genParams.seed == -1:
-        genParams.seed = None
 
     genParams.num_images_to_sample = kdiffReq.grid     # 64 - not sure? -- seems to act as 'number of batches'
     # This can be an URL or Colab local path and must be in quotes.
@@ -95,6 +95,18 @@ def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
     c_sharp_bytes = Array[Byte](op)
     print(type(c_sharp_bytes))
 
+    resp.imageBytes = c_sharp_bytes
+
+    for i, out in enumerate(individualPilImages):
+        resp.seed[i] = seeds[i]
+
+        conv = serve_pil_image(out)
+        op = conv.getvalue()
+
+        bytes = Array[Byte](op)
+
+        resp.imageInfos[i] = bytes
+
     del gridPilImage
     del individualPilImages
     del conv
@@ -103,17 +115,18 @@ def DoGenerate(kdiffReq, kdiffer:kdiffWrap.KDiffWrap, clipwrap, modelwrap):
     gc.collect()
     torch.cuda.empty_cache()
 
-    return c_sharp_bytes
+    #return c_sharp_bytes
+    return resp
 
 
 ########
 ## AIArtist callable from c#
 #########
 
-def Generate(kdiffReq, kdiffer, clipwrap, modelwrap): 
+def Generate(kdiffReq, resp, kdiffer, clipwrap, modelwrap): 
     torch.cuda.empty_cache()
     gc.collect()
-    ret = DoGenerate(kdiffReq, kdiffer, clipwrap, modelwrap)
+    ret = DoGenerate(kdiffReq, resp, kdiffer, clipwrap, modelwrap)
     gc.collect()
     torch.cuda.empty_cache()
     return ret

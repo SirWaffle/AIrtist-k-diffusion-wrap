@@ -4,7 +4,7 @@ import sys
 sys.path.append('./../k-diffusion')
 sys.path.append('./../stable-diffusion')
 
-
+import numpy as np
 import k_diffusion as K
 import torch
 from loguru import logger
@@ -167,7 +167,9 @@ class CompVisSDModel(modelWrap.ModelWrap):
         else:
             self.model.eval().to(device).to(self.tensordtype)
 
-        self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
+        #self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
+        self.kdiffExternalModelWrap = CompVisDenoiser(self.model, False, device=device)
+
         self.default_imageTensorSize = self.default_image_size_x//16  
 
 
@@ -185,6 +187,7 @@ class CompVisSDModel(modelWrap.ModelWrap):
         inst.image_size_x = image_size_x
         inst.image_size_y = image_size_y
 
+        print("image size: (" + str(image_size_x) + ", " + str(image_size_y) + ")")
         return inst
         
     def CreateModelInstance(self, device, clipWrapper:clipWrap.ClipWrap, genParams:paramsGen.ParamsGen, clip_guided) -> modelWrap.ModelContext:
@@ -197,10 +200,13 @@ class CompVisSDModel(modelWrap.ModelWrap):
         return inst
 
     def CreateCFGDenoiser(self, inst:modelWrap.ModelContext, clipEncoder:clipWrap.ClipWrap, cfgPrompts, condScale, genParams:paramsGen.ParamsGen):
-        #c = inst.modelWrap.model.get_learned_conditioning(cfgPrompts)
-        #uc = inst.modelWrap.model.get_learned_conditioning(genParams.num_images_to_sample * [""])
+
         c = self.frozenClip.encode(cfgPrompts)
-        uc = self.frozenClip.encode(genParams.num_images_to_sample * [""])
+
+        if genParams.CFGNegPrompts == None:
+            uc = self.frozenClip.encode(genParams.num_images_to_sample * [""])
+        else:
+            uc = self.frozenClip.encode(genParams.CFGNegPrompts)
 
         inst.extra_args = {'cond': c, 'uncond': uc, 'cond_scale': condScale}
 
@@ -245,3 +251,103 @@ class CompVisSDModel(modelWrap.ModelWrap):
 
     def DecodeImage(self, imageTensor):
         return self.model.decode_first_stage(imageTensor)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+######################
+### trying to make wrapper classes that can be parsed by jitscript thing
+class DiscreteSchedule(nn.Module):
+    """A mapping between continuous noise levels (sigmas) and a list of discrete noise
+    levels."""
+    #@torch.jit.script
+    def __init__(self, sigmas, quantize):
+        super().__init__()
+        self.register_buffer('sigmas', sigmas)
+        self.quantize:bool = quantize
+
+   #@torch.jit.script
+    def get_sigmas(self, n=None):
+        if n is None:
+            return K.sampling.append_zero(self.sigmas.flip(0))
+        t_max = len(self.sigmas) - 1
+        t = torch.linspace(t_max, 0, n, device=self.sigmas.device)
+        return K.sampling.append_zero(self.t_to_sigma(t))
+
+    #@torch.jit.script
+    def sigma_to_t(self, sigma, quantize=None):
+        quantize = self.quantize if quantize is None else quantize
+        dists = torch.abs(sigma - self.sigmas[:, None])
+        if quantize:
+            return torch.argmin(dists, dim=0).view(sigma.shape)
+        #low_idx, high_idx = torch.sort(torch.topk(dists, dim=0, k=2, largest=False).indices, dim=0)[0]
+        topks = torch.topk(dists, dim=0, k=2, largest=False).indices
+        high_idx = torch.max(topks, dim=0)[0]
+        low_idx = torch.min(topks, dim=0)[0]
+        low, high = self.sigmas[low_idx], self.sigmas[high_idx]
+        w = (low - sigma) / (low - high)
+        w = w.clamp(0, 1)
+        t = (1 - w) * low_idx + w * high_idx
+        return t.view(sigma.shape)
+
+    #@torch.jit.script
+    def t_to_sigma(self, t):
+        t = t.float()
+        low_idx, high_idx, w = t.floor().long(), t.ceil().long(), t.frac()
+        return (1 - w) * self.sigmas[low_idx] + w * self.sigmas[high_idx]
+
+
+class DiscreteEpsDDPMDenoiser(DiscreteSchedule):
+    """A wrapper for discrete schedule DDPM models that output eps (the predicted
+    noise)."""
+
+    #@torch.jit.script
+    def __init__(self, model, alphas_cumprod, quantize):
+        super().__init__(((1 - alphas_cumprod) / alphas_cumprod) ** 0.5, quantize)
+        self.inner_model = model
+        self.sigma_data = 1.
+
+    #@torch.jit.script
+    def get_scalings(self, sigma):
+        c_out = -sigma
+        c_in = 1 / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
+        return c_out, c_in
+
+    #@torch.jit.script
+    def get_eps(self, sigma, cond):
+        return self.inner_model(sigma, cond)
+
+    #@torch.jit.script
+    def loss(self, input, noise, sigma, cond):
+        c_out, c_in = [K.utils.append_dims(x, input.ndim) for x in self.get_scalings(sigma)]
+        noised_input = input + noise * K.utils.append_dims(sigma, input.ndim)
+        eps = self.get_eps(noised_input * c_in, self.sigma_to_t(sigma), cond)
+        return (eps - noise).pow(2).flatten(1).mean(1)
+
+    #@torch.jit.script
+    def forward(self, input, sigma, cond):
+        c_out, c_in = [K.utils.append_dims(x, input.ndim) for x in self.get_scalings(sigma)]
+        eps = self.get_eps(input * c_in, self.sigma_to_t(sigma), cond)
+        return input + eps * c_out
+
+
+class CompVisDenoiser(DiscreteEpsDDPMDenoiser):
+    """A wrapper for CompVis diffusion models."""
+
+   # @torch.jit.script
+    def __init__(self, model, quantize=False, device='cpu'):
+        super().__init__(model, model.alphas_cumprod, quantize=quantize)
+
+    #@torch.jit.script
+    def get_eps(self, input, sigma, cond):
+        return self.inner_model.apply_model(input, sigma, cond)

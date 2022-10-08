@@ -35,6 +35,7 @@ import OpenAIUncondModel
 import CompVisSDModel
 import CompVisSDOnnxModel
 import onnxSampling
+import CompVisSDHFOnnxModel
 
 class KDiffWrap:
     def __init__(self, deviceName:str = 'cuda:0'):
@@ -43,7 +44,8 @@ class KDiffWrap:
         print('Using device:', self.torchDevice, flush=True)
 
     def DeleteModel(self, model:modelWrap.ModelWrap):
-        model.model = model.model.cpu()
+        if model.model != None:
+            model.model = model.model.cpu()
         del model.model
         del model
         gc.collect()
@@ -83,10 +85,23 @@ class KDiffWrap:
         elif modelName.lower() == "oai-uncond":
             modelwrapper = OpenAIUncondModel.OpenAIUncondModel()
 
+
+
+        #stable diffusion finetunes
+        elif modelName.lower() == "trine":
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+            modelwrapper.model_path = "E:/MLModels/stableDiffusionFineTunes/trinart_stable_diffusion_v2/trinart2_step115000.ckpt"  
+
+        elif modelName.lower() == "waifu":
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+            modelwrapper.model_path = "E:/MLModels/stableDiffusionFineTunes/waifu-diffusion-v1-3/wd-v1-3-float16.ckpt"   
+
+        #onnx testing attempts
             
-        elif modelName.lower() == "sd-v1-4-onnx-fp32":
+        elif modelName.lower() == "sd-v1-4-onnx-fp32" or modelName.lower() == "onnx":
             modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel(torchdtype = torch.float32)
-            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp32-cuda-auto/model.onnx"    
+            modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp32-cuda-jit/model.onnx"    
+            #modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp32-cuda-auto/model.onnx"    
         elif modelName.lower() == "sd-v1-4-onnx-fp16":
             modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel(torchdtype = torch.float16)
             modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp16-cuda-auto.onnx"    
@@ -94,6 +109,9 @@ class KDiffWrap:
             modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel(torchdtype = torch.float16)
             modelwrapper.model_path = "E:/onnxOut/test-sd-v1-4-fp16-auto.onnx"        
 
+        elif modelName.lower() == "v1-4-onnx-hf":
+            modelwrapper = CompVisSDHFOnnxModel.CompVisSDHFOnnxModel(torchdtype = torch.float32)
+            modelwrapper.model_path = "E:/MLModels/stableDiffusion/sd-v1-4-onnx/unet.onnx"                    
         else:
             raise exception("invalid model")
             
@@ -131,6 +149,33 @@ class KDiffWrap:
         return some_list[:target_len] + [0]*(target_len - len(some_list))
 
 
+    def matchPromptSizesToGenCount(self, str_list, genCount):
+        #match number of promtps to number of sample
+        if str_list != None:
+            #add more to match num samples
+            if len(str_list) < genCount:
+                while len(str_list) < genCount:
+                    str_list.append( str_list[0])
+            
+            #truncate excess
+            elif len(str_list) > genCount + 1:
+                str_list = str_list[0:genCount]
+
+            #if we have 1 more than num samples, treat it as a | b | c | d | e = a + b, a + c, a + d, a + e
+            elif len(str_list) == genCount + 1:
+                #append the first entry to the other entries, make a new list
+                new_list = []
+                first_entry = str_list[0]
+                count = 1
+                for x in str_list:
+                    if count > 1:
+                        new_list.append(first_entry + ' ' + x)
+                    count += 1
+                
+                str_list = new_list
+
+        return str_list
+
 
     def internal_run(self, genParams:paramsGen.ParamsGen, cw:clipWrap.ClipWrap, mw:modelWrap.ModelWrap): 
 
@@ -149,37 +194,22 @@ class KDiffWrap:
                 genParams.image_prompts.append( genParams.image_prompts[0])
 
         #match number of promtps to number of sample
-        if genParams.prompts != None:
-            #add more to match num samples
-            if len(genParams.prompts) < genParams.num_images_to_sample:
-                while len(genParams.prompts) < genParams.num_images_to_sample:
-                    genParams.prompts.append( genParams.prompts[0])
-            
-            #truncate excess
-            elif len(genParams.prompts) > genParams.num_images_to_sample + 1:
-                genParams.prompts = genParams.prompts[0:genParams.num_images_to_sample]
-
-            #if we have 1 more than num samples, treat it as a | b | c | d | e = a + b, a + c, a + d, a + e
-            elif len(genParams.prompts) == genParams.num_images_to_sample + 1:
-                #append the first entry to the other entries, make a new list
-                new_list = []
-                first_entry = genParams.prompts[0]
-                count = 1
-                for x in genParams.prompts:
-                    if count > 1:
-                        new_list.append(first_entry + ' ' + x)
-                    count += 1
-                
-                genParams.prompts = new_list
+        genParams.prompts = self.matchPromptSizesToGenCount(genParams.prompts,genParams.num_images_to_sample )
+        genParams.CFGNegPrompts = self.matchPromptSizesToGenCount(genParams.CFGNegPrompts,genParams.num_images_to_sample )
                 
 
         seeds = []
         if genParams.seed is not None:
-            torch.manual_seed(genParams.seed)
+            for i in range(genParams.num_images_to_sample):
+                if len(genParams.seed) > i:
+                    seeds.append(genParams.seed[i])
+                else:
+                    seeds.append(torch.seed())            
         else:
             for i in range(genParams.num_images_to_sample):
                 seeds.append(torch.seed())
-            print('Using Seeds: '.join("%i, " % item for item in seeds))
+
+        print('Using Seeds: '.join("%i, " % item for item in seeds))
 
         #cheat for now
         device = self.torchDevice
@@ -326,15 +356,20 @@ class KDiffWrap:
             
             if len(seeds) > 1:
                 imgTensors = []
+                lastSeed = 0
                 for i in range(genParams.num_images_to_sample):
-                    torch.manual_seed(seeds[i])
+                    if lastSeed != seeds[i]:
+                        torch.manual_seed(seeds[i])
+
+                    lastSeed = seeds[i]
                     randImg = torch.randn([1, modelCtx.modelWrap.channels, 
                                     modelCtx.image_tensor_size_y, modelCtx.image_tensor_size_x], device=device) * modelCtx.sigmas[0]
 
                     imgTensors.append(randImg)
 
                 x = torch.cat(imgTensors,0)
-            else:                
+            else:       
+                torch.manual_seed(seeds[0])         
                 x = torch.randn([genParams.num_images_to_sample, modelCtx.modelWrap.channels, 
                                 modelCtx.image_tensor_size_y, modelCtx.image_tensor_size_x], device=device) * modelCtx.sigmas[0]
 
@@ -358,7 +393,10 @@ class KDiffWrap:
                     modelCtx.extra_args["uncond"] = modelCtx.extra_args["uncond"].half()
                     modelCtx.extra_args["cond_scale"] = modelCtx.extra_args["cond_scale"].half()
 
-                x_0 = onnxSampling.sample_lms_ONNX(mw.ONNXSession, x, modelCtx.sigmas, callback=callback, extra_args=modelCtx.extra_args)
+                if mw.modelName == "v1-4-onnx-hf":
+                    x_0 = onnxSampling.sample_lms_ONNX_HF(mw.ONNXSession, x, modelCtx.sigmas, callback=callback, extra_args=modelCtx.extra_args)
+                else:
+                    x_0 = onnxSampling.sample_lms_ONNX(mw.ONNXSession, x, modelCtx.sigmas, callback=callback, extra_args=modelCtx.extra_args)
                 #x_0 = onnxSampling.sample_lms_ONNX_with_binding(mw.ONNXSession, x, modelCtx.sigmas, bindingType = modelCtx.modelWrap.tensordtype, callback=callback, extra_args=modelCtx.extra_args)
 
             elif  sm == "heun":

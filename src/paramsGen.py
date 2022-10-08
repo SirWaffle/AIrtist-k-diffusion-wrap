@@ -8,6 +8,7 @@ class ParamsGen():
         # if there are CFG prompts, they are fed into the CFG
         self.CFGprompts = None
         self.CLIPprompts = None
+        self.CFGNegPrompts = None
 
         self.image_prompts = []
         self.n_steps = 500                # 1000 - The number of timesteps to use

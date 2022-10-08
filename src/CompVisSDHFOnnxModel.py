@@ -28,18 +28,15 @@ import CompVisSDModel
 
 
 
-class CompVisSDOnnxModel(CompVisSDModel.CompVisSDModel):
+class CompVisSDHFOnnxModel(CompVisSDModel.CompVisSDModel):
     def __init__(self, torchdtype = torch.float16):
         super().__init__(torchdtype)
         self.ONNX = True #hacky flag im using for ONNX testing
         self.ONNXSession:onnxruntime.InferenceSession = None # hacky way to get a session here for testing
 
+        self.PostQuantSession:onnxruntime.InferenceSession = None
         self.DecoderONNXSession:onnxruntime.InferenceSession = None
         self.tensordtype = torchdtype
-
-        self.decodeWithONNX = True
-        self.decodeWithSDOnCPU = False
-        self.decoderDtype = torch.float16
 
 
     def LoadModel(self, device):
@@ -64,29 +61,13 @@ class CompVisSDOnnxModel(CompVisSDModel.CompVisSDModel):
 
         self.ONNXSession = onnxruntime.InferenceSession(self.model_path, sess_options, providers=providers)#,'CUDAExecutionProvider'])
 
-        #lets try to use the decode ONNX model for decode...
-        if self.decodeWithONNX == True:
-            self.model_path = 'E:/onnxOut/sd-v1-4-fp16-cuda-auto-decode/model.onnx'
-            #self.model_path = 'E:/onnxOut/sd-v1-4-fp32-cuda-jit-decode/model.onnx'
-            self.DecoderONNXSession = onnxruntime.InferenceSession(self.model_path, sess_options, providers=providers)
 
+        dpath = "E:/MLModels/stableDiffusion/sd-v1-4-onnx/decoder.onnx"  
+        #dpath = 'E:/onnxOut/sd-v1-4-fp32-cuda-jit-decode/model.onnx'
+        self.DecoderONNXSession = onnxruntime.InferenceSession(dpath, sess_options, providers=providers)
 
-        #use the old non onnx model for encode decode
-        else:
-            self.model_path = 'E:/MLModels/stableDiffusion/sd-v1-4.ckpt'
-            self.model_config = OmegaConf.load(self.config_path)
-            self.model = instantiate_from_config(self.model_config.model)
-
-            self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
-
-            if self.decodeWithSDOnCPU == True:
-                self.model.eval().to(torch.float32)
-            else:
-                self.model.eval().to(device).to(self.decoderDtype)
-                
-
-
-            self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
+        dpath = "E:/MLModels/stableDiffusion/sd-v1-4-onnx/post_quant_conv.onnx"  
+        self.PostQuantSession = onnxruntime.InferenceSession(dpath, sess_options, providers=providers)
 
         self.default_imageTensorSize = self.default_image_size_x//16  
 
@@ -133,13 +114,11 @@ class CompVisSDOnnxModel(CompVisSDModel.CompVisSDModel):
     def DecodeImage(self, imageTensor):
 
         if self.DecoderONNXSession != None:
-            denoised = self.DecoderONNXSession.run(None,         
-                {'modelInput': imageTensor.cpu().to(self.decoderDtype).numpy()} )
+            imageTensor = 1 / 0.18215 * imageTensor
+            imageTensor = self.PostQuantSession.run(None,         
+                {'latents': imageTensor.cpu().to(self.tensordtype).numpy()} )[0]
 
-            return torch.from_numpy(np.array(denoised)).to(torch.float32).squeeze(0)
-        else:
-            if self.decodeWithSDOnCPU == True:
-                imageTensor = imageTensor.cpu().to(self.decoderDtype)
-            else:
-                imageTensor = imageTensor.cuda().to(self.decoderDtype)
-            return self.model.decode_first_stage(imageTensor)
+            imageTensor = self.DecoderONNXSession.run(None,         
+                {'latents': imageTensor} )[0]
+
+            return torch.from_numpy(np.array(imageTensor)).to(torch.float32)#.squeeze(0)

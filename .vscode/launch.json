@@ -5,6 +5,38 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "sd to TS",
+            "type": "python",
+            "request": "launch",
+            "program": "SDToTorchScript.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },           
+        {
+            "name": "kdiff to jit",
+            "type": "python",
+            "request": "launch",
+            "program": "SDToONNX-withJit.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },   
+        {
+            "name": "HFOnnx Run",
+            "type": "python",
+            "request": "launch",
+            "program": "HFSDOnnxRun.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },        
+        {
+            "name": "HFSD to ONNX",
+            "type": "python",
+            "request": "launch",
+            "program": "HFSDToONNX.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
             "name": "SD To ONNX",
             "type": "python",
             "request": "launch",
@@ -17,6 +49,16 @@
             "type": "python",
             "request": "launch",
             "program": "run_from_cmdline_debugingONNX.py",
+            //"program": "run_from_cmdline_debuging.py",
+            //"program": "run_from_cmdline_initImg.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "SD Debug",
+            "type": "python",
+            "request": "launch",
+            "program": "run_from_cmdline_debuging.py",
             //"program": "run_from_cmdline_debuging.py",
             //"program": "run_from_cmdline_initImg.py",
             "console": "integratedTerminal",
