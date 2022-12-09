@@ -96,6 +96,9 @@ class KDiffWrap:
             modelwrapper = CompVisSDModel.CompVisSDModel()
             modelwrapper.model_path = "E:/MLModels/stableDiffusionFineTunes/waifu-diffusion-v1-3/wd-v1-3-float16.ckpt"   
 
+        elif modelName.lower() == "double_exposure_v2":
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+            modelwrapper.model_path = "E:/MLModels/stableDiffusionFineTunes/stable-diffusion-double-exposure/Double_Exposure_v2.ckpt"   
         #onnx testing attempts
             
         elif modelName.lower() == "sd-v1-4-onnx-fp32" or modelName.lower() == "onnx":
