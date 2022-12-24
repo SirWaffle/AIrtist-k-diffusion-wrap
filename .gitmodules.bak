@@ -19,6 +19,3 @@
 [submodule "stable-diffusion"]
 	path = stable-diffusion
 	url = https://github.com/CompVis/stable-diffusion.git
-[submodule "stablediffusion"]
-	path = stablediffusion
-	url = https://github.com/Stability-AI/stablediffusion.git

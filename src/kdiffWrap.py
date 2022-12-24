@@ -4,9 +4,9 @@ from logging import exception
 import math
 import sys
 
-sys.path.append('./../k-diffusion')
-sys.path.append('./../guided-diffusion')
-sys.path.append('./../v-diffusion-pytorch')
+#sys.path.append('./../k-diffusion')
+#sys.path.append('./../guided-diffusion')
+#sys.path.append('./../v-diffusion-pytorch')
 
 
 import k_diffusion as K
@@ -36,6 +36,7 @@ import CompVisSDModel
 import CompVisSDOnnxModel
 import onnxSampling
 import CompVisSDHFOnnxModel
+import CompVisSD2_768Model
 
 class KDiffWrap:
     def __init__(self, deviceName:str = 'cuda:0'):
@@ -99,6 +100,10 @@ class KDiffWrap:
         elif modelName.lower() == "double_exposure_v2":
             modelwrapper = CompVisSDModel.CompVisSDModel()
             modelwrapper.model_path = "E:/MLModels/stableDiffusionFineTunes/stable-diffusion-double-exposure/Double_Exposure_v2.ckpt"   
+
+        elif modelName.lower() == "sdv2-1":
+            modelwrapper = CompVisSD2_768Model.CompVisSD2_768Model()
+            modelwrapper.model_path = "E:/MLModels/stableDiffusion2/stable-diffusion-2-1/v2-1_768-nonema-pruned.ckpt"               
         #onnx testing attempts
             
         elif modelName.lower() == "sd-v1-4-onnx-fp32" or modelName.lower() == "onnx":

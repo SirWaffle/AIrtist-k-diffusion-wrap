@@ -29,21 +29,21 @@ def DoGenerate(kdiffReq):
     genParams.CFGprompts = None #['a cat']
     genParams.CLIPprompts = None #['a digital painting by anton fadeev']#['A mysterious orb by Ernst Fuchs'] #NONE
     
-    genParams.prompts = ["a yard with trees"] #["beautiful ice dragon sitting on an iceberg, large scaley blue dragon with wings, resting on an iceberg, digital art by peter mohrbacher, peter elson, jesper ejsing"]#["photorealistic painting portrait of a beautiful gorgeous majestic young goddess princess figurative liminal complex flat geometric minimalism by oskar schlemmer rembrandt sorolla oil on canvas cosmic levels shimmer pastel color "]
-    genParams.CFGNegPrompts = ["green, grass"]
+    genParams.prompts = "a yard with trees" #["beautiful ice dragon sitting on an iceberg, large scaley blue dragon with wings, resting on an iceberg, digital art by peter mohrbacher, peter elson, jesper ejsing"]#["photorealistic painting portrait of a beautiful gorgeous majestic young goddess princess figurative liminal complex flat geometric minimalism by oskar schlemmer rembrandt sorolla oil on canvas cosmic levels shimmer pastel color "]
+    #genParams.CFGNegPrompts = ["green, grass"]
     genParams.init_image = None #"https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"
     genParams.image_prompts = None #["https://images.saymedia-content.com/.image/t_share/MTc2Mjg0ODMwNTQ2NDA0NTI1/yin-yang-symbol-meaning-chinese-philosophy.jpg"]
     
     #DPM_2 / DPM_2_A .. works for RDM CFG
     #LMS seems to work for clip guidance ( HUEUN as well, i think )
 
-    genParams.n_steps = 50               # 1000 - The number of timesteps to use    
+    genParams.n_steps = 20               # 1000 - The number of timesteps to use    
     genParams.tv_scale = 100              # 100 - Controls the smoothness of the final output.
     genParams.range_scale = 50            # 50 - Controls how far out of range RGB values are allowed to be.
     genParams.cutn = 32                  # 16 - The number of random crops per step.
                                 # Good values are 16 for 256x256 and 64-128 for 512x512.
     genParams.cut_pow = 0.5               # 0.5 - 
-    genParams.seed = 22217377481300#646941043242600 #None #2226809351
+    genParams.seed = [22217377481300]#646941043242600 #None #2226809351
     genParams.num_images_to_sample = 1    # 64 - not sure? -- seems to act as 'number of batches'
     # This can be an URL or Colab local path and must be in quotes.
     #genParams.init_image = None
@@ -52,7 +52,7 @@ def DoGenerate(kdiffReq):
     genParams.init_scale = 1000  # This enhances the effect of the init image, a good value is 1000.
 
     genParams.conditioning_scale = 7.0 #7.0 seems pretty good in general for RDM, 7.0 to 10.0 pretty good for SD
-    genParams.sampleMethod = "LMS" #LMS"#"HEUN" #"LMS" #LMS or HEUN
+    genParams.sampleMethod = "DPM_2" #"LMS" #
 
     genParams.noiseSchedule = "MODEL"#"KARRAS" #"MODEL"
     genParams.sigma_min = -1.0 #1.4
@@ -72,12 +72,12 @@ def DoGenerate(kdiffReq):
     kdiffer = kdiffWrap.KDiffWrap() #default device is cuda:0, but you can pass 'cpu' to run on CPU
 
 
-    genParams.image_size_x = 832#640 #512
-    genParams.image_size_y = 512 #512
+    genParams.image_size_x = 768#640 #512
+    genParams.image_size_y = 768 #512
 
     #dont need to load an extra clip model with sd-v1-4, comment it out for SD
     clipwrap = None#kdiffer.CreateClipModel("vit-l-14") 
-    modelwrap = kdiffer.CreateModel("waifu")#"sd-v1-4")#
+    modelwrap = kdiffer.CreateModel("sdv2-1")#"sd-v1-4")#
 
     #torch.autograd.set_detect_anomaly(True)
 
