@@ -161,13 +161,25 @@ class CompVisSD2_768Model(modelWrap.ModelWrap):
         self.model_config = OmegaConf.load(self.config_path)
         self.model = instantiate_from_config(self.model_config.model)
 
-        self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
+
+        if self.model_path.endswith(".safetensors"):
+            try:
+                from safetensors.torch import load_file
+            except ImportError as e:
+                raise ImportError(f"The model is in safetensors format and it is not installed, use `pip install safetensors`: {e}")
+            print('========= Attempting to load safetensors ==========')
+            pl_sd = load_file(self.model_path, device='cpu')
+            self.model.load_state_dict(pl_sd, strict=False)
+        else:
+            pl_sd = torch.load(self.model_path, map_location='cpu')
+            self.model.load_state_dict(pl_sd["state_dict"], strict=False)
         
         if str(device) == 'cpu':
             self.model.eval().to(torch.float32).to(device)
             self.tensordtype = torch.float32
         else:
             self.model.eval().to(device).to(self.tensordtype)
+        
 
         #self.kdiffExternalModelWrap = K.external.CompVisDenoiser(self.model, False, device=device)
         self.kdiffExternalModelWrap = K.external.CompVisVDenoiser(self.model, False, device=device)

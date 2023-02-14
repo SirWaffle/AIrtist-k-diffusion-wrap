@@ -60,7 +60,7 @@ class KDiffWrap:
         return None        
 
 
-    def CreateModel(self, modelName:str) ->modelWrap.ModelWrap:
+    def CreateModel(self, modelName:str, modelType:str, isFullPath:bool) ->modelWrap.ModelWrap:
         
         if modelName.lower() == "sd-v1-3-full-ema":
             modelwrapper = CompVisSDModel.CompVisSDModel()
@@ -88,7 +88,7 @@ class KDiffWrap:
 
 
 
-        #stable diffusion finetunes
+        #stable diffusion 1.5 finetunes
         elif modelName.lower() == "trine":
             modelwrapper = CompVisSDModel.CompVisSDModel()
             modelwrapper.model_path = "E:/MLModels/stableDiffusionFineTunes/trinart_stable_diffusion_v2/trinart2_step115000.ckpt"  
@@ -101,11 +101,27 @@ class KDiffWrap:
             modelwrapper = CompVisSDModel.CompVisSDModel()
             modelwrapper.model_path = "E:/MLModels/stableDiffusionFineTunes/stable-diffusion-double-exposure/Double_Exposure_v2.ckpt"   
 
+        elif modelName.lower() == "ayonimixv2":
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+            modelwrapper.model_path = "E:/MLModels/stableDiffusionFineTunes/AyoniMix_V2/AyoniMix V2 Float32.safetensors"   
+
+        elif modelType.lower() == "sdv1.5" and isFullPath == True:
+            modelwrapper = CompVisSDModel.CompVisSDModel()
+            modelwrapper.model_path = modelName;  
+       
+
+
+        #stable diffusion 2
         elif modelName.lower() == "sdv2-1":
             modelwrapper = CompVisSD2_768Model.CompVisSD2_768Model()
             modelwrapper.model_path = "E:/MLModels/stableDiffusion2/stable-diffusion-2-1/v2-1_768-nonema-pruned.ckpt"               
-        #onnx testing attempts
-            
+       
+        elif modelType.lower() == "sdv2" and isFullPath == True:
+            modelwrapper = CompVisSD2_768Model.CompVisSD2_768Model()
+            modelwrapper.model_path = modelName;  
+       
+
+        #onnx testing attempts          
         elif modelName.lower() == "sd-v1-4-onnx-fp32" or modelName.lower() == "onnx":
             modelwrapper = CompVisSDOnnxModel.CompVisSDOnnxModel(torchdtype = torch.float32)
             modelwrapper.model_path = "E:/onnxOut/sd-v1-4-fp32-cuda-jit/model.onnx"    

@@ -15,6 +15,7 @@ import onnxruntime
 from einops import rearrange, repeat
 from transformers import CLIPTokenizer, CLIPTextModel
 import torch.nn as nn
+from safetensors.torch import load_file
 
 import denoisers
 import paramsGen
@@ -159,7 +160,17 @@ class CompVisSDModel(modelWrap.ModelWrap):
         self.model_config = OmegaConf.load(self.config_path)
         self.model = instantiate_from_config(self.model_config.model)
 
-        self.model.load_state_dict(torch.load(self.model_path, map_location='cpu')["state_dict"], strict=False)
+        if self.model_path.endswith(".safetensors"):
+            try:
+                from safetensors.torch import load_file
+            except ImportError as e:
+                raise ImportError(f"The model is in safetensors format and it is not installed, use `pip install safetensors`: {e}")
+            print('========= Attempting to load safetensors ==========')
+            pl_sd = load_file(self.model_path, device='cpu')
+            self.model.load_state_dict(pl_sd, strict=False)
+        else:
+            pl_sd = torch.load(self.model_path, map_location='cpu')
+            self.model.load_state_dict(pl_sd["state_dict"], strict=False)
         
         if str(device) == 'cpu':
             self.model.eval().to(torch.float32).to(device)
@@ -171,6 +182,38 @@ class CompVisSDModel(modelWrap.ModelWrap):
         self.kdiffExternalModelWrap = CompVisDenoiser(self.model, False, device=device)
 
         self.default_imageTensorSize = self.default_image_size_x//16  
+
+
+
+    def transform_checkpoint_dict_key(self, k):
+        chckpoint_dict_replacements = {
+            'cond_stage_model.transformer.embeddings.': 'cond_stage_model.transformer.text_model.embeddings.',
+            'cond_stage_model.transformer.encoder.': 'cond_stage_model.transformer.text_model.encoder.',
+            'cond_stage_model.transformer.final_layer_norm.': 'cond_stage_model.transformer.text_model.final_layer_norm.',
+        }
+
+        for text, replacement in chckpoint_dict_replacements.items():
+            if k.startswith(text):
+                k = replacement + k[len(text):]
+
+        return k
+
+    def get_state_dict_from_checkpoint(self, pl_sd):
+        pl_sd = pl_sd.pop("state_dict", pl_sd)
+        pl_sd.pop("state_dict", None)
+
+        sd = {}
+        for k, v in pl_sd.items():
+            new_key = self.transform_checkpoint_dict_key(k)
+
+            if new_key is not None:
+                sd[new_key] = v
+
+        pl_sd.clear()
+        pl_sd.update(sd)
+
+        return pl_sd
+
 
 
     def RequestImageSize(self, inst:modelWrap.ModelContext, x, y):
