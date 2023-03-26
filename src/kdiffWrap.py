@@ -3,6 +3,7 @@ import io
 from logging import exception
 import math
 import sys
+import pathlib
 
 #sys.path.append('./../k-diffusion')
 #sys.path.append('./../guided-diffusion')
@@ -107,7 +108,7 @@ class KDiffWrap:
 
         elif modelType.lower() == "sdv1.5" and isFullPath == True:
             modelwrapper = CompVisSDModel.CompVisSDModel()
-            modelwrapper.model_path = modelName;  
+            modelwrapper.model_path = modelName 
        
 
 
@@ -116,10 +117,21 @@ class KDiffWrap:
             modelwrapper = CompVisSD2_768Model.CompVisSD2_768Model()
             modelwrapper.model_path = "E:/MLModels/stableDiffusion2/stable-diffusion-2-1/v2-1_768-nonema-pruned.ckpt"               
        
-        elif modelType.lower() == "sdv2" and isFullPath == True:
+        elif modelType.lower() == "sdv2-512" and isFullPath == True:
             modelwrapper = CompVisSD2_768Model.CompVisSD2_768Model()
-            modelwrapper.model_path = modelName;  
+            modelwrapper.model_path = modelName
+            modelwrapper.default_image_size_x = 512
+            modelwrapper.default_image_size_y = 512
        
+        elif modelType.lower() == "sdv2-768" and isFullPath == True:
+            modelwrapper = CompVisSD2_768Model.CompVisSD2_768Model()
+            modelwrapper.model_path = modelName
+
+            path = pathlib.Path(modelName)
+            configpath = path.parent.joinpath(path.with_suffix(".yaml"))
+            print("--->  attmepting to load path: " + str(configpath))
+            self.config_path = str(configpath)
+
 
         #onnx testing attempts          
         elif modelName.lower() == "sd-v1-4-onnx-fp32" or modelName.lower() == "onnx":
@@ -441,6 +453,10 @@ class KDiffWrap:
             elif sm == "dpm_2_a":
                 print("sampling: DPM_2_A")
                 x_0 = K.sampling.sample_dpm_2_ancestral(modelCtx.kdiffModelWrap, x, modelCtx.sigmas, callback=callback,extra_args=modelCtx.extra_args)
+
+            elif sm == "dpmpp_2_m":
+                print("sampling: DPMPP_2_A")
+                x_0 = K.sampling.sample_dpmpp_2m(modelCtx.kdiffModelWrap, x, modelCtx.sigmas, callback=callback,extra_args=modelCtx.extra_args)
             else:
                 print("ERROR: invalid sampling method, defaulting to LMS")
                 x_0 = K.sampling.sample_lms(modelCtx.kdiffModelWrap, x, modelCtx.sigmas, callback=callback,extra_args=modelCtx.extra_args)

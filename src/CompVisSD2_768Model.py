@@ -138,12 +138,14 @@ class CompVisSD2_768Model(modelWrap.ModelWrap):
         #defaults to fp16 on cuda
         self.tensordtype = torchdtype
 
-
-    def ModelLoadSettings(self):
         self.config_path = "D:/AIrtist/k-diffusion-wrap/stablediffusion/configs/stable-diffusion/v2-inference-v.yaml"
-        #self.model_path = "E:/MLModels/stableDiffusion/sd-v1-3-full-ema.ckpt" 
+
         self.default_image_size_x = 768
         self.default_image_size_y = 768
+
+    def ModelLoadSettings(self):
+        #self.config_path = "D:/AIrtist/k-diffusion-wrap/stablediffusion/configs/stable-diffusion/v2-inference-v.yaml"
+        #self.model_path = "E:/MLModels/stableDiffusion/sd-v1-3-full-ema.ckpt" 
         self.channels = 4
 
 
