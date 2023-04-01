@@ -139,7 +139,8 @@ class CompVisSDModel(modelWrap.ModelWrap):
 
 
     def ModelLoadSettings(self):
-        self.config_path = "D:/AIrtist/k-diffusion-wrap/stable-diffusion/configs/stable-diffusion/v1-inference.yaml"
+        #self.config_path = "D:/AIrtist/k-diffusion-wrap/stable-diffusion/configs/stable-diffusion/v1-inference.yaml"
+        self.config_path = "D:/AIrtist/k-diffusion-wrap/stablediffusion/configs/stable-diffusion/v1-inference.yaml"
         #self.model_path = "E:/MLModels/stableDiffusion/sd-v1-3-full-ema.ckpt" 
         self.default_image_size_x = 512
         self.default_image_size_y = 512
